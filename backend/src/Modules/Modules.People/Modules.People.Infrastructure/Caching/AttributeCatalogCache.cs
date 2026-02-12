@@ -10,22 +10,24 @@ public sealed class AttributeCatalogCache
 {
     private const string CacheKey = "ficticia:people:attribute-definitions:v1";
 
-    private readonly IDistributedCache _cache;
+    private readonly IDistributedCache? _cache;
     private readonly PeopleDbContext _db;
 
-    public AttributeCatalogCache(IDistributedCache cache, PeopleDbContext db)
+    public AttributeCatalogCache(PeopleDbContext db, IDistributedCache? cache = null)
     {
-        _cache = cache;
         _db = db;
+        _cache = cache;
     }
 
     public async Task<IReadOnlyList<AttributeDefinitionDto>> GetAsync(bool onlyActive, CancellationToken ct)
     {
         var key = $"{CacheKey}:{onlyActive}";
-        var cached = await _cache.GetStringAsync(key, ct);
-
-        if (cached is not null)
-            return JsonSerializer.Deserialize<List<AttributeDefinitionDto>>(cached)!;
+        if (_cache is not null)
+        {
+            var cached = await _cache.GetStringAsync(key, ct);
+            if (cached is not null)
+                return JsonSerializer.Deserialize<List<AttributeDefinitionDto>>(cached)!;
+        }
 
         var q = _db.AttributeDefinitions.AsNoTracking();
         if (onlyActive) q = q.Where(x => x.IsActive);
@@ -36,16 +38,21 @@ public sealed class AttributeCatalogCache
             ))
             .ToListAsync(ct);
 
-        await _cache.SetStringAsync(
-            key,
-            JsonSerializer.Serialize(items),
-            new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30) },
-            ct
-        );
+        if (_cache is not null)
+        {
+            await _cache.SetStringAsync(
+                key,
+                JsonSerializer.Serialize(items),
+                new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30) },
+                ct
+            );
+        }
 
         return items;
     }
 
     public Task InvalidateAsync(CancellationToken ct)
-        => _cache.RemoveAsync($"{CacheKey}:True", ct); // si querés, borrá ambas variantes
+        => _cache is null
+            ? Task.CompletedTask
+            : _cache.RemoveAsync($"{CacheKey}:True", ct); // si querés, borrá ambas variantes
 }
