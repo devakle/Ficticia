@@ -63,11 +63,20 @@ public sealed class PeopleController : ControllerBase
         [FromQuery] int? maxAge,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] Dictionary<string, string>? attr = null,
         [FromServices] IMediator mediator = default!)
     {
-        var dyn = Request.Query
-            .Where(kv => kv.Key.StartsWith("attr.", StringComparison.OrdinalIgnoreCase))
-            .ToDictionary(kv => kv.Key["attr.".Length..], kv => kv.Value.ToString());
+
+        // Soportar 2 formatos:
+        // 1) Nuevo: attr[disease_text]=hipertension (Swagger-friendly)
+        // 2) Legacy: attr.disease_text=hipertension (tu formato actual)
+        var dyn = attr ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var kv in Request.Query.Where(k => k.Key.StartsWith("attr.", StringComparison.OrdinalIgnoreCase)))
+        {
+            var key = kv.Key["attr.".Length..];
+            dyn[key] = kv.Value.ToString();
+        }
 
         var req = new SearchPeopleRequest(name, identificationNumber, isActive, minAge, maxAge, dyn, page, pageSize);
         var res = await mediator.Send(new SearchPeopleQuery(req));
@@ -90,6 +99,16 @@ public sealed class PeopleController : ControllerBase
         [FromServices] IMediator mediator)
     {
         var res = await mediator.Send(new GetPersonAttributesQuery(personId));
+        return res.IsSuccess ? Ok(res.Value) : NotFound(res.Error);
+    }
+
+    [HttpGet("{personId:guid}/attributes/form")]
+    public async Task<ActionResult<IReadOnlyList<PersonAttributeFormItemDto>>> GetAttributeForm(
+        Guid personId,
+        [FromQuery] bool onlyActive = true,
+        [FromServices] IMediator mediator = default!)
+    {
+        var res = await mediator.Send(new GetPersonAttributeFormQuery(personId, onlyActive));
         return res.IsSuccess ? Ok(res.Value) : NotFound(res.Error);
     }
 
