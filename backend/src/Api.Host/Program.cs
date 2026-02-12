@@ -1,13 +1,28 @@
 using BuildingBlocks.Infrastructure;
 using BuildingBlocks.Infrastructure.Middleware;
 using BuildingBlocks.Infrastructure.Logging;
+using Modules.People.Infrastructure;
+using Modules.People.Application.People.Commands;
+using FluentValidation;
 
 var builder = WebApplication.CreateBuilder(args);
+
 builder.Services.AddBuildingBlocks();
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+builder.Services.AddPeopleModule(builder.Configuration);
+
+// MediatR: escanear el assembly del módulo
+builder.Services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssembly(typeof(CreatePersonCommand).Assembly);
+});
+
+// FluentValidation: escanear validators del módulo
+builder.Services.AddValidatorsFromAssembly(typeof(Modules.People.Application.Validators.CreatePersonValidator).Assembly);
 
 var app = builder.Build();
 
