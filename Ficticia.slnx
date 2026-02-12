@@ -1,0 +1,31 @@
+<Solution>
+  <Folder Name="/backend/" />
+  <Folder Name="/backend/src/">
+    <Project Path="backend/src/Api.Host/Api.Host.csproj" />
+  </Folder>
+  <Folder Name="/backend/src/BuildingBlocks/">
+    <Project Path="backend/src/BuildingBlocks/BuildingBlocks.Abstractions/BuildingBlocks.Abstractions.csproj" />
+    <Project Path="backend/src/BuildingBlocks/BuildingBlocks.Infrastructure/BuildingBlocks.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/backend/src/Modules/" />
+  <Folder Name="/backend/src/Modules/Modules.AI/">
+    <Project Path="backend/src/Modules/Modules.AI/Modules.AI.Application/Modules.AI.Application.csproj" />
+    <Project Path="backend/src/Modules/Modules.AI/Modules.AI.Contracts/Modules.AI.Contracts.csproj" />
+    <Project Path="backend/src/Modules/Modules.AI/Modules.AI.Infrastructure/Modules.AI.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/backend/src/Modules/Modules.Identity/">
+    <Project Path="backend/src/Modules/Modules.Identity/Modules.Identity.Application/Modules.Identity.Application.csproj" />
+    <Project Path="backend/src/Modules/Modules.Identity/Modules.Identity.Contracts/Modules.Identity.Contracts.csproj" />
+    <Project Path="backend/src/Modules/Modules.Identity/Modules.Identity.Infrastructure/Modules.Identity.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/backend/src/Modules/Modules.People/">
+    <Project Path="backend/src/Modules/Modules.People/Modules.People.Application/Modules.People.Application.csproj" />
+    <Project Path="backend/src/Modules/Modules.People/Modules.People.Contracts/Modules.People.Contracts.csproj" />
+    <Project Path="backend/src/Modules/Modules.People/Modules.People.Domain/Modules.People.Domain.csproj" />
+    <Project Path="backend/src/Modules/Modules.People/Modules.People.Infrastructure/Modules.People.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/backend/tests/">
+    <Project Path="backend/tests/Modules.People.IntegrationTests/Modules.People.IntegrationTests.csproj" />
+    <Project Path="backend/tests/Modules.People.UnitTests/Modules.People.UnitTests.csproj" />
+  </Folder>
+</Solution>
