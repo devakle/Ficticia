@@ -50,10 +50,13 @@ internal sealed class SearchPeopleHandler : IRequestHandler<SearchPeopleQuery, R
                 .ToListAsync(ct);
 
             var defMap = defs.ToDictionary(x => x.Key, x => x);
+            
+            var values = _vals.Query().AsNoTracking();
 
             foreach (var (rawKey, rawVal) in r.DynamicFilters)
             {
                 var key = Modules.People.Domain.Entities.AttributeDefinition.NormalizeKey(rawKey);
+
                 if (!defMap.TryGetValue(key, out var def))
                     return Result<PagedResult<PersonDto>>.Fail(PeopleErrors.InvalidFilter, $"Filtro inválido: {key}");
 
@@ -64,40 +67,52 @@ internal sealed class SearchPeopleHandler : IRequestHandler<SearchPeopleQuery, R
                     case 1: // bool
                         if (!bool.TryParse(v, out var bv))
                             return Result<PagedResult<PersonDto>>.Fail(PeopleErrors.InvalidFilter, $"Filtro {key} requiere boolean");
-                        query =
-                            from p in query
-                            join av in _vals.Query().AsNoTracking() on p.Id equals av.PersonId
-                            where av.AttributeDefinitionId == def.Id && av.ValueBool == bv
-                            select p;
+
+                        query = query.Where(p =>
+                            values.Any(av =>
+                                av.PersonId == p.Id &&
+                                av.AttributeDefinitionId == def.Id &&
+                                av.ValueBool == bv));
                         break;
 
                     case 2: // string
-                    case 5: // enum(string)
-                        query =
-                            from p in query
-                            join av in _vals.Query().AsNoTracking() on p.Id equals av.PersonId
-                            where av.AttributeDefinitionId == def.Id && av.ValueString != null && av.ValueString.Contains(v)
-                            select p;
+                    case 5: // enum string
+                        if (v.Length == 0) break;
+
+                        // Mejor que Contains (por collation + Like). OJO: %v% sigue sin índice normal.
+                        query = query.Where(p =>
+                            values.Any(av =>
+                                av.PersonId == p.Id &&
+                                av.AttributeDefinitionId == def.Id &&
+                                av.ValueString != null &&
+                                EF.Functions.Like(
+                                    EF.Functions.Collate(av.ValueString, "Latin1_General_CI_AI"),
+                                    $"%{v}%"
+                                )));
                         break;
 
                     case 3: // number
                         if (!decimal.TryParse(v, out var nv))
                             return Result<PagedResult<PersonDto>>.Fail(PeopleErrors.InvalidFilter, $"Filtro {key} requiere número");
-                        query =
-                            from p in query
-                            join av in _vals.Query().AsNoTracking() on p.Id equals av.PersonId
-                            where av.AttributeDefinitionId == def.Id && av.ValueNumber == nv
-                            select p;
+
+                        query = query.Where(p =>
+                            values.Any(av =>
+                                av.PersonId == p.Id &&
+                                av.AttributeDefinitionId == def.Id &&
+                                av.ValueNumber == nv));
                         break;
 
                     case 4: // date
                         if (!DateTime.TryParse(v, out var dv))
                             return Result<PagedResult<PersonDto>>.Fail(PeopleErrors.InvalidFilter, $"Filtro {key} requiere fecha");
-                        query =
-                            from p in query
-                            join av in _vals.Query().AsNoTracking() on p.Id equals av.PersonId
-                            where av.AttributeDefinitionId == def.Id && av.ValueDate == dv.Date
-                            select p;
+
+                        var date = dv.Date;
+
+                        query = query.Where(p =>
+                            values.Any(av =>
+                                av.PersonId == p.Id &&
+                                av.AttributeDefinitionId == def.Id &&
+                                av.ValueDate == date));
                         break;
 
                     default:

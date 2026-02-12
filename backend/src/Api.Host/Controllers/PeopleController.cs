@@ -6,13 +6,16 @@ using Modules.People.Application.People.Queries;
 using Modules.People.Contracts.Dtos;
 using BuildingBlocks.Abstractions.Common;
 using Modules.People.Application.Attributes.Queries;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Host.Controllers;
 
+[Authorize(Policy = "People.Read")]
 [ApiController]
 [Route("api/v1/people")]
 public sealed class PeopleController : ControllerBase
 {
+    [Authorize(Policy = "People.Write")]
     [HttpPost]
     public async Task<ActionResult<PersonDto>> Create(
         [FromBody] CreatePersonCommand cmd,

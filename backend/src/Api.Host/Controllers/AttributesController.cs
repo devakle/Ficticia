@@ -3,9 +3,11 @@ using Microsoft.AspNetCore.Mvc;
 using Modules.People.Application.Attributes.Commands;
 using Modules.People.Application.Attributes.Queries;
 using Modules.People.Contracts.Dtos;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Api.Host.Controllers;
 
+[Authorize(Policy = "Attributes.Manage")]
 [ApiController]
 [Route("api/v1/attributes")]
 public sealed class AttributesController : ControllerBase
