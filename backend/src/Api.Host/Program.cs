@@ -1,62 +1,46 @@
 using BuildingBlocks.Infrastructure;
-using BuildingBlocks.Infrastructure.Middleware;
 using BuildingBlocks.Infrastructure.Logging;
-using Modules.People.Infrastructure;
-using Modules.People.Application.People.Commands;
+using BuildingBlocks.Infrastructure.Middleware;
 using FluentValidation;
+using Modules.People.Application.People.Commands;
+using Modules.People.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddControllers();
+
+// Swagger
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// BuildingBlocks (middlewares + validation pipeline)
 builder.Services.AddBuildingBlocks();
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// Redis (opcional; si no lo tenés aún, borrá estas 2 líneas)
+builder.Services.AddStackExchangeRedisCache(opt => opt.Configuration = "localhost:6379");
 
+// People module (DbContext + repos + UoW + cache)
 builder.Services.AddPeopleModule(builder.Configuration);
 
-// MediatR: escanear el assembly del módulo
+// MediatR: escanear handlers People
 builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssembly(typeof(CreatePersonCommand).Assembly);
 });
 
-// FluentValidation: escanear validators del módulo
+// Validators: escanear validators People
 builder.Services.AddValidatorsFromAssembly(typeof(Modules.People.Application.Validators.CreatePersonValidator).Assembly);
 
 var app = builder.Build();
 
+await Api.Host.Seed.SeedPeopleDefaults.SeedAsync(app.Services);
+
+app.UseSwagger();
+app.UseSwaggerUI();
+
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+app.MapControllers();
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
