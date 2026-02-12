@@ -5,6 +5,7 @@ using Modules.People.Application.People.Commands;
 using Modules.People.Application.People.Queries;
 using Modules.People.Contracts.Dtos;
 using BuildingBlocks.Abstractions.Common;
+using Modules.People.Application.Attributes.Queries;
 
 namespace Api.Host.Controllers;
 
@@ -82,4 +83,14 @@ public sealed class PeopleController : ControllerBase
         var res = await mediator.Send(new UpsertPersonAttributesCommand(personId, values));
         return res.IsSuccess ? NoContent() : BadRequest(res.Error);
     }
+
+    [HttpGet("{personId:guid}/attributes")]
+    public async Task<ActionResult<IReadOnlyList<PersonAttributeDto>>> GetAttributes(
+        Guid personId,
+        [FromServices] IMediator mediator)
+    {
+        var res = await mediator.Send(new GetPersonAttributesQuery(personId));
+        return res.IsSuccess ? Ok(res.Value) : NotFound(res.Error);
+    }
+
 }
