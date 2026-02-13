@@ -8,11 +8,16 @@ namespace Modules.People.Application.Attributes.Commands;
 internal sealed class UpdateAttributeDefinitionHandler : IRequestHandler<UpdateAttributeDefinitionCommand, Result>
 {
     private readonly IAttributeDefinitionRepository _defs;
+    private readonly IAttributeCatalogCache _cache;
     private readonly IUnitOfWork _uow;
 
-    public UpdateAttributeDefinitionHandler(IAttributeDefinitionRepository defs, IUnitOfWork uow)
+    public UpdateAttributeDefinitionHandler(
+        IAttributeDefinitionRepository defs,
+        IAttributeCatalogCache cache,
+        IUnitOfWork uow)
     {
         _defs = defs;
+        _cache = cache;
         _uow = uow;
     }
 
@@ -25,6 +30,7 @@ internal sealed class UpdateAttributeDefinitionHandler : IRequestHandler<UpdateA
 
         _defs.Update(def);
         await _uow.SaveChangesAsync(ct);
+        await _cache.InvalidateAsync(ct);
         return Result.Ok();
     }
 }

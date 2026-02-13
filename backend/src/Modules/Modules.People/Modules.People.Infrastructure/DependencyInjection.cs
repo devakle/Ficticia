@@ -30,7 +30,7 @@ public static class DependencyInjection
             new EfUnitOfWork<PeopleDbContext>(sp.GetRequiredService<PeopleDbContext>()));
 
         // Cache (si tenés Redis en Api.Host)
-        services.AddScoped<AttributeCatalogCache>();
+        services.AddScoped<IAttributeCatalogCache, AttributeCatalogCache>();
 
         return services;
     }

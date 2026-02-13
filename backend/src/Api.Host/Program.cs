@@ -11,10 +11,21 @@ using Microsoft.IdentityModel.Tokens;
 using Modules.Identity.Infrastructure.Persistence;
 using System.Text;
 using Microsoft.OpenApi;
+using Modules.AI.Infrastructure;
+using Modules.AI.Application.Conditions.Commands;
+using MediatR;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddAiModule(builder.Configuration);
+
+builder.Services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssembly(typeof(NormalizeConditionCommand).Assembly);
+});
+
 builder.Services.AddControllers();
+
 // Identity Db
 builder.Services.AddDbContext<IdentityDbContext>(opt =>
     opt.UseSqlServer(builder.Configuration.GetConnectionString("IdentityDb")));

@@ -1,12 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
+using Modules.People.Application.Abstractions;
 using Modules.People.Contracts.Dtos;
 using Modules.People.Infrastructure.Persistence;
 using System.Text.Json;
 
 namespace Modules.People.Infrastructure.Caching;
 
-public sealed class AttributeCatalogCache
+public sealed class AttributeCatalogCache : IAttributeCatalogCache
 {
     private const string CacheKey = "ficticia:people:attribute-definitions:v1";
 
@@ -54,5 +55,7 @@ public sealed class AttributeCatalogCache
     public Task InvalidateAsync(CancellationToken ct)
         => _cache is null
             ? Task.CompletedTask
-            : _cache.RemoveAsync($"{CacheKey}:True", ct); // si querés, borrá ambas variantes
+            : Task.WhenAll(
+                _cache.RemoveAsync($"{CacheKey}:True", ct),
+                _cache.RemoveAsync($"{CacheKey}:False", ct));
 }

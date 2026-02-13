@@ -4,6 +4,8 @@
     <ProjectReference Include="..\Modules.AI.Application\Modules.AI.Application.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\BuildingBlocks.Abstractions\BuildingBlocks.Abstractions.csproj" />
     <ProjectReference Include="..\..\..\BuildingBlocks\BuildingBlocks.Infrastructure\BuildingBlocks.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules.AI.Application\Modules.AI.Application.csproj" />
+    <ProjectReference Include="..\..\Modules.People\Modules.People.Application\Modules.People.Application.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

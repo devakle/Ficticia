@@ -20,7 +20,14 @@ public static class SeedPeopleDefaults
             new AttributeDefinition("drives", "¿Maneja?", AttributeDataType.Boolean, true, null),
             new AttributeDefinition("uses_glasses", "¿Usa lentes?", AttributeDataType.Boolean, true, null),
             new AttributeDefinition("diabetic", "¿Es diabético?", AttributeDataType.Boolean, true, null),
-            new AttributeDefinition("disease_text", "¿Padece alguna otra enfermedad? ¿Cuál?", AttributeDataType.String, true, null)
+            new AttributeDefinition("disease_text", "¿Padece alguna otra enfermedad? ¿Cuál?", AttributeDataType.String, true, null),
+            new AttributeDefinition(
+                "condition_code",
+                "Condición (código)",
+                AttributeDataType.Enum,
+                true,
+                "{ \"allowedValues\": [\"hipertension\",\"diabetes\",\"asma\",\"enfermedad_cardiaca\",\"ninguna\",\"desconocida\"] }"
+            )
         );
 
         await db.SaveChangesAsync();

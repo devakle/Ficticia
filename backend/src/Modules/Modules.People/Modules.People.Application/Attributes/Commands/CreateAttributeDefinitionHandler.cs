@@ -11,11 +11,16 @@ namespace Modules.People.Application.Attributes.Commands;
 internal sealed class CreateAttributeDefinitionHandler : IRequestHandler<CreateAttributeDefinitionCommand, Result<AttributeDefinitionDto>>
 {
     private readonly IAttributeDefinitionRepository _defs;
+    private readonly IAttributeCatalogCache _cache;
     private readonly IUnitOfWork _uow;
 
-    public CreateAttributeDefinitionHandler(IAttributeDefinitionRepository defs, IUnitOfWork uow)
+    public CreateAttributeDefinitionHandler(
+        IAttributeDefinitionRepository defs,
+        IAttributeCatalogCache cache,
+        IUnitOfWork uow)
     {
         _defs = defs;
+        _cache = cache;
         _uow = uow;
     }
 
@@ -37,6 +42,7 @@ internal sealed class CreateAttributeDefinitionHandler : IRequestHandler<CreateA
 
         await _defs.AddAsync(def, ct);
         await _uow.SaveChangesAsync(ct);
+        await _cache.InvalidateAsync(ct);
 
         return Result<AttributeDefinitionDto>.Ok(new AttributeDefinitionDto(
             def.Id, def.Key, def.DisplayName, (int)def.DataType, def.IsFilterable, def.IsActive, def.ValidationRulesJson
