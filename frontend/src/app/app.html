@@ -34,12 +34,14 @@
     </div>
   </section>
 
-  @if (error) {
-    <p class="feedback error">{{ error }}</p>
-  }
-  @if (message) {
-    <p class="feedback ok">{{ message }}</p>
-  }
+  <div class="toast-stack" aria-live="polite" aria-atomic="true">
+    @for (note of notifications(); track note.id) {
+      <article class="toast" [class.error]="note.type === 'error'">
+        <p>{{ note.text }}</p>
+        <button type="button" class="toast-close" (click)="dismissNotification(note.id)" aria-label="Dismiss notification">×</button>
+      </article>
+    }
+  </div>
 
   <section class="layout-two">
     <article class="panel">

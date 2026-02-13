@@ -1,5 +1,5 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
-import { ChangeDetectorRef, Component, HostBinding, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, HostBinding, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
@@ -65,6 +65,12 @@ interface UpsertAttributeValueDto {
   dateValue: string | null;
 }
 
+interface ToastMessage {
+  id: number;
+  type: 'success' | 'error';
+  text: string;
+}
+
 @Component({
   selector: 'app-root',
   imports: [FormsModule],
@@ -98,8 +104,7 @@ export class App {
   themeMode: 'light' | 'dark' = this.getInitialTheme();
 
   busy = false;
-  message = '';
-  error = '';
+  notifications = signal<ToastMessage[]>([]);
 
   includeInactiveDefinitions = false;
 
@@ -149,7 +154,7 @@ export class App {
 
       this.token = res.access_token;
       localStorage.setItem('admin_token', this.token);
-      this.message = 'Authenticated successfully.';
+      this.notifySuccess('Authenticated successfully.');
 
       await Promise.all([this.searchPeople(), this.loadDefinitions()]);
     });
@@ -158,8 +163,7 @@ export class App {
   logout(): void {
     this.token = '';
     localStorage.removeItem('admin_token');
-    this.message = 'Token cleared.';
-    this.error = '';
+    this.notifySuccess('Token cleared.');
   }
 
   async searchPeople(): Promise<void> {
@@ -198,7 +202,7 @@ export class App {
 
       this.people = res.items;
       this.totalPeople = res.total;
-      this.message = `Loaded ${res.items.length} people.`;
+      this.notifySuccess(`Loaded ${res.items.length} people.`);
 
       if (this.selectedPerson) {
         const updated = this.people.find(p => p.id === this.selectedPerson?.id) ?? null;
@@ -212,7 +216,7 @@ export class App {
       const url = `${this.apiBaseUrl}/api/v1/people`;
       const created = await firstValueFrom(this.http.post<PersonDto>(url, this.personForm, { headers: this.authHeaders }));
 
-      this.message = `Created person ${created.fullName}.`;
+      this.notifySuccess(`Created person ${created.fullName}.`);
       this.selectPerson(created);
       await this.searchPeople();
     });
@@ -220,7 +224,7 @@ export class App {
 
   async updatePerson(): Promise<void> {
     if (!this.selectedPerson) {
-      this.error = 'Select a person to update.';
+      this.notifyError('Select a person to update.');
       return;
     }
 
@@ -229,14 +233,14 @@ export class App {
       const url = `${this.apiBaseUrl}/api/v1/people/${this.selectedPerson!.id}`;
       await firstValueFrom(this.http.put<void>(url, payload, { headers: this.authHeaders }));
 
-      this.message = 'Person updated.';
+      this.notifySuccess('Person updated.');
       await this.searchPeople();
     });
   }
 
   async toggleStatus(nextIsActive: boolean): Promise<void> {
     if (!this.selectedPerson) {
-      this.error = 'Select a person to change status.';
+      this.notifyError('Select a person to change status.');
       return;
     }
 
@@ -244,7 +248,7 @@ export class App {
       const url = `${this.apiBaseUrl}/api/v1/people/${this.selectedPerson!.id}/status`;
       await firstValueFrom(this.http.patch<void>(url, { id: this.selectedPerson!.id, isActive: nextIsActive }, { headers: this.authHeaders }));
 
-      this.message = `Person marked as ${nextIsActive ? 'active' : 'inactive'}.`;
+      this.notifySuccess(`Person marked as ${nextIsActive ? 'active' : 'inactive'}.`);
       await this.searchPeople();
     });
   }
@@ -280,7 +284,7 @@ export class App {
       this.definitions = await firstValueFrom(
         this.http.get<AttributeDefinitionDto[]>(url, { headers: this.authHeaders, params })
       );
-      this.message = `Loaded ${this.definitions.length} attribute definitions.`;
+      this.notifySuccess(`Loaded ${this.definitions.length} attribute definitions.`);
     });
   }
 
@@ -305,7 +309,7 @@ export class App {
         validationRulesJson: ''
       };
 
-      this.message = 'Attribute definition created.';
+      this.notifySuccess('Attribute definition created.');
       await this.loadDefinitions();
     });
   }
@@ -322,7 +326,7 @@ export class App {
       };
 
       await firstValueFrom(this.http.put<void>(url, payload, { headers: this.authHeaders }));
-      this.message = `Saved definition ${definition.key}.`;
+      this.notifySuccess(`Saved definition ${definition.key}.`);
 
       if (this.selectedPerson) {
         await this.loadPersonAttributeForm();
@@ -343,13 +347,13 @@ export class App {
         this.http.get<PersonAttributeFormItemDto[]>(url, { headers: this.authHeaders, params })
       );
 
-      this.message = `Loaded ${this.personAttributes.length} attributes for selected person.`;
+      this.notifySuccess(`Loaded ${this.personAttributes.length} attributes for selected person.`);
     });
   }
 
   async savePersonAttributes(): Promise<void> {
     if (!this.selectedPerson) {
-      this.error = 'Select a person first.';
+      this.notifyError('Select a person first.');
       return;
     }
 
@@ -379,7 +383,7 @@ export class App {
       const url = `${this.apiBaseUrl}/api/v1/people/${this.selectedPerson!.id}/attributes`;
       await firstValueFrom(this.http.put<void>(url, payload, { headers: this.authHeaders }));
 
-      this.message = 'Person attributes saved.';
+      this.notifySuccess('Person attributes saved.');
       await this.loadPersonAttributeForm();
     });
   }
@@ -405,19 +409,23 @@ export class App {
     this.cdr.detectChanges();
   }
 
+  dismissNotification(id: number): void {
+    this.notifications.update(items => items.filter(n => n.id !== id));
+    this.cdr.detectChanges();
+  }
+
   private get authHeaders(): HttpHeaders {
     return new HttpHeaders({ Authorization: `Bearer ${this.token}` });
   }
 
   private async run(work: () => Promise<void>): Promise<void> {
     this.busy = true;
-    this.error = '';
     this.cdr.detectChanges();
 
     try {
       await work();
     } catch (err: unknown) {
-      this.error = this.toErrorMessage(err);
+      this.notifyError(this.toErrorMessage(err));
     } finally {
       this.busy = false;
       this.cdr.detectChanges();
@@ -445,6 +453,24 @@ export class App {
     }
 
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
+  private notifySuccess(text: string): void {
+    this.pushNotification('success', text);
+  }
+
+  private notifyError(text: string): void {
+    this.pushNotification('error', text);
+  }
+
+  private pushNotification(type: 'success' | 'error', text: string): void {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    this.notifications.update(items => [...items, { id, type, text }]);
+    this.cdr.detectChanges();
+
+    setTimeout(() => {
+      this.dismissNotification(id);
+    }, 3500);
   }
 
   private toErrorMessage(err: unknown): string {

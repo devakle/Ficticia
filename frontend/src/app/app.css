@@ -228,30 +228,64 @@ button:disabled {
   flex-wrap: wrap;
 }
 
-.feedback {
-  margin: 0;
-  padding: 0.7rem 0.8rem;
-  border-radius: 8px;
-  font-size: 0.9rem;
+.toast-stack {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1000;
+  display: grid;
+  gap: 0.55rem;
+  width: min(380px, calc(100vw - 2rem));
 }
 
-.feedback.ok {
+.toast {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0.72rem 0.8rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
   background: #e5f7ef;
   border: 1px solid #b2e6ce;
+  color: #1f4f42;
+  box-shadow: var(--shadow);
 }
 
-.feedback.error {
+.toast.error {
   background: #fdeceb;
-  border: 1px solid #efc2bf;
+  border-color: #efc2bf;
   color: #7b201a;
 }
 
-:host.dark-theme .feedback.ok {
-  background: #1f352e;
-  border-color: #3f705f;
+.toast p {
+  margin: 0;
 }
 
-:host.dark-theme .feedback.error {
+.toast-close {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  width: auto;
+  min-width: auto;
+  padding: 0;
+  line-height: 1;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.toast-close:hover:enabled {
+  background: transparent;
+}
+
+:host.dark-theme .toast {
+  background: #1f352e;
+  border-color: #3f705f;
+  color: #daf6ec;
+}
+
+:host.dark-theme .toast.error {
   background: #3b2424;
   border-color: #7e4f4c;
   color: #f7d3d0;
