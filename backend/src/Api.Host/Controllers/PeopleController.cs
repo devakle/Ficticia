@@ -66,19 +66,29 @@ public sealed class PeopleController : ControllerBase
         [FromQuery] int? maxAge,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
-        [FromQuery] Dictionary<string, string>? attr = null,
         [FromServices] IMediator mediator = default!)
     {
 
         // Soportar 2 formatos:
-        // 1) Nuevo: attr[disease_text]=hipertension (Swagger-friendly)
-        // 2) Legacy: attr.disease_text=hipertension (tu formato actual)
-        var dyn = attr ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // 1) attr[disease_text]=hipertension (Swagger-friendly)
+        // 2) attr.disease_text=hipertension (legacy)
+        // Construimos dinámicos SOLO desde claves attr.* / attr[...]
+        // para evitar que page/pageSize/otros query params entren como filtros.
+        var dyn = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var kv in Request.Query.Where(k => k.Key.StartsWith("attr.", StringComparison.OrdinalIgnoreCase)))
         {
             var key = kv.Key["attr.".Length..];
             dyn[key] = kv.Value.ToString();
+        }
+
+        foreach (var kv in Request.Query.Where(k =>
+                     k.Key.StartsWith("attr[", StringComparison.OrdinalIgnoreCase) &&
+                     k.Key.EndsWith("]", StringComparison.Ordinal)))
+        {
+            var key = kv.Key["attr[".Length..^1];
+            if (!string.IsNullOrWhiteSpace(key))
+                dyn[key] = kv.Value.ToString();
         }
 
         var req = new SearchPeopleRequest(name, identificationNumber, isActive, minAge, maxAge, dyn, page, pageSize);
