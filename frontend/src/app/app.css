@@ -17,6 +17,24 @@
     radial-gradient(circle at 10% 10%, #fff6d8 0%, transparent 35%),
     radial-gradient(circle at 90% 0%, #d6f5e8 0%, transparent 32%),
     var(--bg);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+:host.dark-theme {
+  --bg: #0f1616;
+  --panel: #172021;
+  --ink: #e8f0eb;
+  --subtle: #a8b6b0;
+  --accent: #4bc2a2;
+  --accent-strong: #39a587;
+  --danger: #ef6a61;
+  --line: #314040;
+  --shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+
+  background:
+    radial-gradient(circle at 10% 10%, #1f2d2a 0%, transparent 35%),
+    radial-gradient(circle at 90% 0%, #1b2336 0%, transparent 32%),
+    var(--bg);
 }
 
 h1,
@@ -94,6 +112,16 @@ h3 {
   background: #fbe9e7;
 }
 
+:host.dark-theme .chip {
+  border-color: #4b7f74;
+  background: #1f3934;
+}
+
+:host.dark-theme .chip.off {
+  border-color: #875a56;
+  background: #3c2422;
+}
+
 .grid {
   display: grid;
   gap: 0.7rem;
@@ -135,6 +163,15 @@ select {
   padding: 0.52rem 0.62rem;
   background: #ffffff;
   color: var(--ink);
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+:host.dark-theme input,
+:host.dark-theme select {
+  background: #101718;
+  color: var(--ink);
 }
 
 input:focus,
@@ -164,6 +201,15 @@ button.secondary {
 
 button.secondary:hover:enabled {
   background: #d4dacc;
+}
+
+:host.dark-theme button.secondary {
+  background: #2a3534;
+  color: #dce8e3;
+}
+
+:host.dark-theme button.secondary:hover:enabled {
+  background: #344443;
 }
 
 button:disabled {
@@ -198,6 +244,17 @@ button:disabled {
   background: #fdeceb;
   border: 1px solid #efc2bf;
   color: #7b201a;
+}
+
+:host.dark-theme .feedback.ok {
+  background: #1f352e;
+  border-color: #3f705f;
+}
+
+:host.dark-theme .feedback.error {
+  background: #3b2424;
+  border-color: #7e4f4c;
+  color: #f7d3d0;
 }
 
 .layout-two {
@@ -246,6 +303,10 @@ tr.selected {
   background: #f0faf5;
 }
 
+:host.dark-theme tr.selected {
+  background: #20302d;
+}
+
 .inline-checkbox {
   display: flex;
   align-items: center;
@@ -272,6 +333,10 @@ tr.selected {
   background: #fcfcf7;
   border-radius: 10px;
   padding: 0.7rem;
+}
+
+:host.dark-theme .definition-item {
+  background: #141d1e;
 }
 
 .definition-item header {

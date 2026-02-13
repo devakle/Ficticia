@@ -6,6 +6,9 @@
     </div>
     <div class="status">
       <span class="chip" [class.off]="!token">{{ token ? 'Authenticated' : 'No token' }}</span>
+      <button type="button" class="secondary" (click)="toggleTheme()">
+        {{ themeMode === 'dark' ? 'Light mode' : 'Dark mode' }}
+      </button>
       <button type="button" class="secondary" (click)="logout()" [disabled]="busy || !token">Clear token</button>
     </div>
   </header>

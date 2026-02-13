@@ -1,5 +1,5 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
-import { ChangeDetectorRef, Component, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, HostBinding, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 
@@ -74,6 +74,7 @@ interface UpsertAttributeValueDto {
 export class App {
   private readonly http = inject(HttpClient);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly themeStorageKey = 'admin_theme_mode';
 
   readonly genders = [
     { value: 0, label: 'Unknown' },
@@ -94,6 +95,7 @@ export class App {
   email = 'admin@ficticia.local';
   password = 'Admin123!';
   token = localStorage.getItem('admin_token') ?? '';
+  themeMode: 'light' | 'dark' = this.getInitialTheme();
 
   busy = false;
   message = '';
@@ -133,6 +135,11 @@ export class App {
   };
 
   personAttributes: PersonAttributeFormItemDto[] = [];
+
+  @HostBinding('class.dark-theme')
+  get isDarkTheme(): boolean {
+    return this.themeMode === 'dark';
+  }
 
   async login(): Promise<void> {
     await this.run(async () => {
@@ -197,7 +204,6 @@ export class App {
         const updated = this.people.find(p => p.id === this.selectedPerson?.id) ?? null;
         this.selectPerson(updated);
       }
-      console.log(this.people);
     });
   }
 
@@ -393,6 +399,12 @@ export class App {
     return this.attributeTypes.find(t => t.value === type)?.label ?? String(type);
   }
 
+  toggleTheme(): void {
+    this.themeMode = this.themeMode === 'dark' ? 'light' : 'dark';
+    localStorage.setItem(this.themeStorageKey, this.themeMode);
+    this.cdr.detectChanges();
+  }
+
   private get authHeaders(): HttpHeaders {
     return new HttpHeaders({ Authorization: `Bearer ${this.token}` });
   }
@@ -424,6 +436,15 @@ export class App {
       page: raw.page ?? raw.Page ?? 1,
       pageSize: raw.pageSize ?? raw.PageSize ?? 20
     };
+  }
+
+  private getInitialTheme(): 'light' | 'dark' {
+    const stored = localStorage.getItem(this.themeStorageKey);
+    if (stored === 'dark' || stored === 'light') {
+      return stored;
+    }
+
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
 
   private toErrorMessage(err: unknown): string {
