@@ -406,6 +406,87 @@ tr.selected {
   background: #141d1e;
 }
 
+.risk-card.risk-low {
+  border-color: #74c6a9;
+  background: #eaf8f2;
+}
+
+.risk-card.risk-medium {
+  border-color: #e5bf70;
+  background: #fff6e5;
+}
+
+.risk-card.risk-high {
+  border-color: #e08c83;
+  background: #fdeceb;
+}
+
+:host.dark-theme .risk-card.risk-low {
+  border-color: #3f8a70;
+  background: #17332b;
+}
+
+:host.dark-theme .risk-card.risk-medium {
+  border-color: #8f7540;
+  background: #322a18;
+}
+
+:host.dark-theme .risk-card.risk-high {
+  border-color: #90524b;
+  background: #361f1d;
+}
+
+.risk-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.risk-badge {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.risk-badge.risk-low {
+  border-color: #58ad8e;
+  color: #125843;
+  background: #daf2ea;
+}
+
+.risk-badge.risk-medium {
+  border-color: #cea556;
+  color: #6d4d0b;
+  background: #fff2d7;
+}
+
+.risk-badge.risk-high {
+  border-color: #cd6d63;
+  color: #7b201a;
+  background: #f9dbd8;
+}
+
+:host.dark-theme .risk-badge.risk-low {
+  border-color: #3f8a70;
+  color: #b9ead9;
+  background: #1a3b31;
+}
+
+:host.dark-theme .risk-badge.risk-medium {
+  border-color: #8f7540;
+  color: #f4ddb0;
+  background: #382e1a;
+}
+
+:host.dark-theme .risk-badge.risk-high {
+  border-color: #90524b;
+  color: #f3bbb6;
+  background: #3d2523;
+}
+
 .ai-list {
   display: grid;
   gap: 0.35rem;

@@ -299,12 +299,27 @@
     }
 
     @if (riskScore) {
-      <div class="ai-card">
+      <div
+        class="ai-card risk-card"
+        [class.risk-low]="isRiskBand(riskScore.band, 'low')"
+        [class.risk-medium]="isRiskBand(riskScore.band, 'medium')"
+        [class.risk-high]="isRiskBand(riskScore.band, 'high')"
+      >
         <h3>Risk Score</h3>
-        <p class="hint"><strong>{{ riskScore.score }}</strong> · band {{ riskScore.band }}</p>
-        @if (riskScore.reasons.length) {
+        <p class="hint risk-summary">
+          <strong>{{ riskScore.score }}</strong>
+          <span
+            class="risk-badge"
+            [class.risk-low]="isRiskBand(riskScore.band, 'low')"
+            [class.risk-medium]="isRiskBand(riskScore.band, 'medium')"
+            [class.risk-high]="isRiskBand(riskScore.band, 'high')"
+          >
+            {{ riskBandLabel(riskScore.band) }}
+          </span>
+        </p>
+        @if ((riskScore.reasons ?? []).length) {
           <ul class="reason-list">
-            @for (reason of riskScore.reasons; track reason) {
+            @for (reason of (riskScore.reasons ?? []); track reason) {
               <li>{{ reason }}</li>
             }
           </ul>

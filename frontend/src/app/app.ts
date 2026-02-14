@@ -77,8 +77,8 @@ interface NormalizeConditionResponseDto {
 
 interface RiskScoreResponseDto {
   score: number;
-  band: string;
-  reasons: string[];
+  band: string | number;
+  reasons: string[] | null | undefined;
 }
 
 interface ToastMessage {
@@ -432,10 +432,15 @@ export class App {
 
     await this.run(async () => {
       const url = `${this.apiBaseUrl}/api/v1/ai/people/${this.selectedPerson!.id}/risk-score`;
-      this.riskScore = await firstValueFrom(
+      const response = await firstValueFrom(
         this.http.post<RiskScoreResponseDto>(url, {}, { headers: this.authHeaders })
       );
-      this.notifySuccess(`Risk score calculated: ${this.riskScore.score} (${this.riskScore.band}).`);
+      this.riskScore = {
+        score: response.score,
+        band: response.band,
+        reasons: Array.isArray(response.reasons) ? response.reasons : []
+      };
+      this.notifySuccess(`Risk score calculated: ${this.riskScore.score} (${this.riskBandLabel(this.riskScore.band)}).`);
     });
   }
 
@@ -495,6 +500,25 @@ export class App {
     return this.attributeTypes.find(t => t.value === type)?.label ?? String(type);
   }
 
+  isRiskBand(band: string | number, expected: 'low' | 'medium' | 'high'): boolean {
+    return this.normalizeRiskBand(band) === expected;
+  }
+
+  riskBandLabel(band: string | number): string {
+    const normalized = this.normalizeRiskBand(band);
+    if (normalized === 'low') {
+      return 'Riesgo bajo';
+    }
+    if (normalized === 'medium') {
+      return 'Riesgo medio';
+    }
+    if (normalized === 'high') {
+      return 'Riesgo alto';
+    }
+
+    return `Banda ${String(band)}`;
+  }
+
   toggleTheme(): void {
     this.themeMode = this.themeMode === 'dark' ? 'light' : 'dark';
     localStorage.setItem(this.themeStorageKey, this.themeMode);
@@ -536,6 +560,31 @@ export class App {
       page: raw.page ?? raw.Page ?? 1,
       pageSize: raw.pageSize ?? raw.PageSize ?? 20
     };
+  }
+
+  private normalizeRiskBand(band: string | number): 'low' | 'medium' | 'high' | 'unknown' {
+    if (band === 1 || band === '1') {
+      return 'low';
+    }
+    if (band === 2 || band === '2') {
+      return 'medium';
+    }
+    if (band === 3 || band === '3') {
+      return 'high';
+    }
+
+    const normalized = String(band).trim().toLowerCase();
+    if (normalized === 'low') {
+      return 'low';
+    }
+    if (normalized === 'medium') {
+      return 'medium';
+    }
+    if (normalized === 'high') {
+      return 'high';
+    }
+
+    return 'unknown';
   }
 
   private getInitialTheme(): 'light' | 'dark' {
