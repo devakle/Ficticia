@@ -1,0 +1,36 @@
+name: CD Local (Self-hosted)
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  deploy_local:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GHCR_PAT_READ }}" | docker login ghcr.io -u ${{ secrets.GH_OWNER }} --password-stdin
+
+      - name: Deploy via docker compose (local)
+        env:
+          ENV_FILE: /opt/ficticia/.env
+        run: |
+          set -e
+          cd $GITHUB_WORKSPACE
+
+          # Asegura env file existe
+          test -f "$ENV_FILE"
+
+          # Pull + Up
+          docker compose --env-file "$ENV_FILE" -f deploy/docker-compose.local.yml pull
+          docker compose --env-file "$ENV_FILE" -f deploy/docker-compose.local.yml up -d --remove-orphans
+
+          docker ps

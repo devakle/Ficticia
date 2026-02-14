@@ -1,0 +1,39 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ficticia-sql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${SA_PASSWORD}"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sql_data:/var/opt/mssql
+
+  api:
+    image: ghcr.io/${GITHUB_OWNER}/ficticia-api:${IMAGE_TAG}
+    container_name: ficticia-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      ConnectionStrings__PeopleDb: "Server=sqlserver,1433;Database=FicticiaPeople;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;"
+      ConnectionStrings__IdentityDb: "Server=sqlserver,1433;Database=FicticiaIdentity;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;"
+      Jwt__Key: "${JWT_KEY}"
+      OpenAI__ApiKey: "${OPENAI_API_KEY}"
+      OpenAI__Model: "gpt-4o-mini"
+    depends_on:
+      - sqlserver
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/${GITHUB_OWNER}/ficticia-web:${IMAGE_TAG}
+    container_name: ficticia-web
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+    restart: unless-stopped
+
+volumes:
+  sql_data:
