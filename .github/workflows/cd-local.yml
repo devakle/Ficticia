@@ -67,22 +67,25 @@ jobs:
           exit 1
 
       - name: Show ngrok public URL (if enabled)
+        continue-on-error: true
         env:
           ENV_FILE: /opt/ficticia/.env
         run: |
           set -e
           if grep -q '^NGROK_AUTHTOKEN=' "$ENV_FILE" && [ -n "$(grep '^NGROK_AUTHTOKEN=' "$ENV_FILE" | cut -d'=' -f2-)" ]; then
             echo "Waiting for ngrok tunnel..."
-            for i in {1..20}; do
-              URL=$(docker logs ficticia-ngrok 2>&1 | grep -o 'https://[^[:space:]]*' | head -n1 || true)
+            for i in {1..30}; do
+              URL=$(docker logs ficticia-ngrok 2>&1 | grep -Eo 'https://[^[:space:]]+' | tr -d "'"'"'\"" | head -n1 || true)
               if [ -n "$URL" ]; then
                 echo "Ngrok URL: $URL"
                 exit 0
               fi
               sleep 2
             done
-            echo "ngrok did not publish a URL yet; check docker logs ficticia-ngrok"
-            exit 1
+            echo "::warning::ngrok did not publish a URL yet; deployment continues."
+            docker ps --filter name=ficticia-ngrok || true
+            docker logs --tail 80 ficticia-ngrok || true
+            exit 0
           else
             echo "ngrok not enabled in env file; skipping."
           fi
