@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Api.IntegrationTests.Fixtures;
 
@@ -27,6 +30,13 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 // evita pegarle a OpenAI en integration tests
                 ["OpenAI:ApiKey"] = "disabled"
             });
+        });
+
+        builder.ConfigureServices(services =>
+        {
+            // CI usually does not provide Redis. Use in-memory distributed cache for deterministic tests.
+            services.RemoveAll<IDistributedCache>();
+            services.AddDistributedMemoryCache();
         });
     }
 }
