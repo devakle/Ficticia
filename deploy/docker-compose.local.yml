@@ -11,15 +11,19 @@ services:
       - sql_data:/var/opt/mssql
 
   api:
-    image: ghcr.io/${GITHUB_OWNER}/ficticia-api:${IMAGE_TAG}
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
     container_name: ficticia-api
     environment:
       ASPNETCORE_ENVIRONMENT: "Production"
       ConnectionStrings__PeopleDb: "Server=sqlserver,1433;Database=FicticiaPeople;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;"
       ConnectionStrings__IdentityDb: "Server=sqlserver,1433;Database=FicticiaIdentity;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;"
       Jwt__Key: "${JWT_KEY}"
+      Jwt__Issuer: "Ficticia.Api"
+      Jwt__Audience: "Ficticia.Web"
+      Jwt__ExpiresMinutes: "60"
       OpenAI__ApiKey: "${OPENAI_API_KEY}"
-      OpenAI__Model: "gpt-4o-mini"
     depends_on:
       - sqlserver
     ports:
@@ -27,13 +31,30 @@ services:
     restart: unless-stopped
 
   web:
-    image: ghcr.io/${GITHUB_OWNER}/ficticia-web:${IMAGE_TAG}
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
     container_name: ficticia-web
     depends_on:
       - api
     ports:
       - "80:80"
     restart: unless-stopped
+
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: ficticia-ngrok
+    command:
+      - "http"
+      - "--pooling-enabled"
+      - "web:80"
+    environment:
+      NGROK_AUTHTOKEN: "${NGROK_AUTHTOKEN}"
+    depends_on:
+      - web
+    restart: unless-stopped
+    profiles:
+      - ngrok
 
 volumes:
   sql_data:

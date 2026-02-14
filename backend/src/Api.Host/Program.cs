@@ -46,7 +46,10 @@ builder.Services
 
 // JWT Auth
 var jwt = builder.Configuration.GetSection("Jwt");
-var keyBytes = Encoding.UTF8.GetBytes(jwt["Key"]!);
+var jwtIssuer = jwt["Issuer"] ?? "Ficticia.Api";
+var jwtAudience = jwt["Audience"] ?? "Ficticia.Web";
+var jwtKey = jwt["Key"] ?? throw new InvalidOperationException("Jwt:Key is required.");
+var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -55,10 +58,10 @@ builder.Services
         opt.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidIssuer = jwt["Issuer"],
+            ValidIssuer = jwtIssuer,
 
             ValidateAudience = true,
-            ValidAudience = jwt["Audience"],
+            ValidAudience = jwtAudience,
 
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(keyBytes),

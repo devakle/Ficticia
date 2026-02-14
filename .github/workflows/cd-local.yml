@@ -3,34 +3,86 @@ name: CD Local (Self-hosted)
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch:
 
 permissions:
   contents: read
-  packages: read
 
 jobs:
   deploy_local:
+    name: Deploy locally on self-hosted runner
     runs-on: self-hosted
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Login to GHCR
-        run: echo "${{ secrets.GHCR_PAT_READ }}" | docker login ghcr.io -u ${{ secrets.GH_OWNER }} --password-stdin
+      - name: Show runner info
+        run: |
+          whoami
+          uname -a
+          docker --version
+          docker compose version
 
-      - name: Deploy via docker compose (local)
+      - name: Deploy (build locally with Docker Compose)
         env:
           ENV_FILE: /opt/ficticia/.env
         run: |
           set -e
-          cd $GITHUB_WORKSPACE
+          cd "$GITHUB_WORKSPACE"
 
-          # Asegura env file existe
-          test -f "$ENV_FILE"
+          if [ ! -f "$ENV_FILE" ]; then
+            echo "Missing env file at $ENV_FILE"
+            echo "Create it on the runner machine (NOT in git). Example:"
+            echo "SA_PASSWORD=YourStrongPassword_123!"
+            echo "JWT_KEY=SUPER_LONG_KEY_CHANGE_ME_1234567890"
+            echo "OPENAI_API_KEY=disabled"
+            echo "NGROK_AUTHTOKEN=your_token_here   # optional"
+            exit 1
+          fi
 
-          # Pull + Up
-          docker compose --env-file "$ENV_FILE" -f deploy/docker-compose.local.yml pull
-          docker compose --env-file "$ENV_FILE" -f deploy/docker-compose.local.yml up -d --remove-orphans
+          docker compose --env-file "$ENV_FILE" -f deploy/docker-compose.local.yml build
+          if grep -q '^NGROK_AUTHTOKEN=' "$ENV_FILE" && [ -n "$(grep '^NGROK_AUTHTOKEN=' "$ENV_FILE" | cut -d'=' -f2-)" ]; then
+            echo "NGROK_AUTHTOKEN detected, enabling ngrok profile."
+            docker compose --env-file "$ENV_FILE" -f deploy/docker-compose.local.yml --profile ngrok up -d --remove-orphans
+          else
+            echo "NGROK_AUTHTOKEN not set, deploying without ngrok."
+            docker compose --env-file "$ENV_FILE" -f deploy/docker-compose.local.yml up -d --remove-orphans
+          fi
 
           docker ps
+
+      - name: Optional smoke check (API)
+        run: |
+          set -e
+          # waits a bit for containers to be ready
+          for i in {1..30}; do
+            if curl -fsS http://localhost:8080/swagger/index.html >/dev/null 2>&1; then
+              echo "API up (swagger reachable)"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API did not become ready in time (check docker logs ficticia-api)"
+          exit 1
+
+      - name: Show ngrok public URL (if enabled)
+        env:
+          ENV_FILE: /opt/ficticia/.env
+        run: |
+          set -e
+          if grep -q '^NGROK_AUTHTOKEN=' "$ENV_FILE" && [ -n "$(grep '^NGROK_AUTHTOKEN=' "$ENV_FILE" | cut -d'=' -f2-)" ]; then
+            echo "Waiting for ngrok tunnel..."
+            for i in {1..20}; do
+              URL=$(docker logs ficticia-ngrok 2>&1 | grep -o 'https://[^[:space:]]*' | head -n1 || true)
+              if [ -n "$URL" ]; then
+                echo "Ngrok URL: $URL"
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "ngrok did not publish a URL yet; check docker logs ficticia-ngrok"
+            exit 1
+          else
+            echo "ngrok not enabled in env file; skipping."
+          fi

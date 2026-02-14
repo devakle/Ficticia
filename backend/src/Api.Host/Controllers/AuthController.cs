@@ -27,7 +27,12 @@ public sealed class AuthController : ControllerBase
         var roles = await users.GetRolesAsync(user);
 
         var jwt = cfg.GetSection("Jwt");
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt["Key"]!));
+        var jwtIssuer = jwt["Issuer"] ?? "Ficticia.Api";
+        var jwtAudience = jwt["Audience"] ?? "Ficticia.Web";
+        var expiresMinutes = int.TryParse(jwt["ExpiresMinutes"], out var m) ? m : 60;
+        var jwtKey = jwt["Key"] ?? throw new InvalidOperationException("Jwt:Key is required.");
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new List<Claim>
@@ -41,10 +46,10 @@ public sealed class AuthController : ControllerBase
         claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
 
         var token = new JwtSecurityToken(
-            issuer: jwt["Issuer"],
-            audience: jwt["Audience"],
+            issuer: jwtIssuer,
+            audience: jwtAudience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(int.Parse(jwt["ExpiresMinutes"]!)),
+            expires: DateTime.UtcNow.AddMinutes(expiresMinutes),
             signingCredentials: creds
         );
 
@@ -54,7 +59,7 @@ public sealed class AuthController : ControllerBase
         {
             access_token = tokenString,
             token_type = "Bearer",
-            expires_in_minutes = int.Parse(jwt["ExpiresMinutes"]!),
+            expires_in_minutes = expiresMinutes,
             roles
         });
     }
