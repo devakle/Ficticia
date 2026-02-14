@@ -1,4 +1,5 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
+import { DecimalPipe } from '@angular/common';
 import { ChangeDetectorRef, Component, HostBinding, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -65,6 +66,21 @@ interface UpsertAttributeValueDto {
   dateValue: string | null;
 }
 
+interface NormalizeConditionResponseDto {
+  code: string;
+  label: string;
+  confidence: number;
+  matchedTerms: string[];
+  suggestedAttributes: UpsertAttributeValueDto[];
+  source: string;
+}
+
+interface RiskScoreResponseDto {
+  score: number;
+  band: string;
+  reasons: string[];
+}
+
 interface ToastMessage {
   id: number;
   type: 'success' | 'error';
@@ -73,7 +89,7 @@ interface ToastMessage {
 
 @Component({
   selector: 'app-root',
-  imports: [FormsModule],
+  imports: [FormsModule, DecimalPipe],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
@@ -140,6 +156,9 @@ export class App {
   };
 
   personAttributes: PersonAttributeFormItemDto[] = [];
+  conditionText = '';
+  normalizedCondition: NormalizeConditionResponseDto | null = null;
+  riskScore: RiskScoreResponseDto | null = null;
 
   @HostBinding('class.dark-theme')
   get isDarkTheme(): boolean {
@@ -255,6 +274,7 @@ export class App {
 
   selectPerson(person: PersonDto | null): void {
     this.selectedPerson = person;
+    this.riskScore = null;
 
     if (!person) {
       this.personForm = {
@@ -386,6 +406,78 @@ export class App {
       this.notifySuccess('Person attributes saved.');
       await this.loadPersonAttributeForm();
     });
+  }
+
+  async normalizeCondition(): Promise<void> {
+    const text = this.conditionText.trim();
+    if (!text) {
+      this.notifyError('Enter a condition text to normalize.');
+      return;
+    }
+
+    await this.run(async () => {
+      const url = `${this.apiBaseUrl}/api/v1/ai/conditions/normalize`;
+      this.normalizedCondition = await firstValueFrom(
+        this.http.post<NormalizeConditionResponseDto>(url, { text }, { headers: this.authHeaders })
+      );
+      this.notifySuccess(`Condition normalized as ${this.normalizedCondition.code}.`);
+    });
+  }
+
+  async scoreSelectedPersonRisk(): Promise<void> {
+    if (!this.selectedPerson) {
+      this.notifyError('Select a person to score risk.');
+      return;
+    }
+
+    await this.run(async () => {
+      const url = `${this.apiBaseUrl}/api/v1/ai/people/${this.selectedPerson!.id}/risk-score`;
+      this.riskScore = await firstValueFrom(
+        this.http.post<RiskScoreResponseDto>(url, {}, { headers: this.authHeaders })
+      );
+      this.notifySuccess(`Risk score calculated: ${this.riskScore.score} (${this.riskScore.band}).`);
+    });
+  }
+
+  applySuggestedAttributes(): void {
+    if (!this.normalizedCondition) {
+      this.notifyError('No normalized condition result to apply.');
+      return;
+    }
+
+    if (!this.selectedPerson) {
+      this.notifyError('Select a person before applying suggested attributes.');
+      return;
+    }
+
+    if (this.personAttributes.length === 0) {
+      this.notifyError('Load person attributes before applying suggestions.');
+      return;
+    }
+
+    const suggestions = this.normalizedCondition.suggestedAttributes;
+    let applied = 0;
+    console.log('Applying suggested attributes:', suggestions);
+    for (const suggestion of suggestions) {
+      const target = this.personAttributes.find(attr => attr.key === suggestion.key);
+      if (!target) {
+        continue;
+      }
+
+      target.boolValue = suggestion.boolValue;
+      target.stringValue = suggestion.stringValue;
+      target.numberValue = suggestion.numberValue;
+      target.dateValue = suggestion.dateValue;
+      applied += 1;
+    }
+
+    if (applied === 0) {
+      this.notifyError('No matching attribute keys found to apply suggestions.');
+      return;
+    }
+
+    this.notifySuccess(`Applied ${applied} suggested attribute value(s). Save attributes to persist.`);
+    this.cdr.detectChanges();
   }
 
   addDynamicFilter(): void {

@@ -246,6 +246,76 @@
   </section>
 
   <section class="panel">
+    <h2>AI Tools</h2>
+
+    <div class="grid two">
+      <label class="span-two">
+        Condition text
+        <input [(ngModel)]="conditionText" placeholder="e.g. diabetic with chronic hypertension" />
+      </label>
+    </div>
+
+    <div class="actions split">
+      <button type="button" class="secondary" (click)="normalizeCondition()" [disabled]="busy || !token">Normalize condition</button>
+      <button type="button" class="secondary" (click)="applySuggestedAttributes()" [disabled]="busy || !token || !normalizedCondition || !selectedPerson">
+        Apply suggested attributes
+      </button>
+      <button type="button" (click)="scoreSelectedPersonRisk()" [disabled]="busy || !token || !selectedPerson">Score selected person risk</button>
+    </div>
+
+    @if (normalizedCondition) {
+      <div class="ai-card">
+        <h3>Normalized Condition</h3>
+        <p class="hint">
+          <strong>{{ normalizedCondition.code }}</strong> · {{ normalizedCondition.label }} ·
+          confidence {{ normalizedCondition.confidence | number: '1.0-3' }} · source {{ normalizedCondition.source }}
+        </p>
+
+        <p class="hint">Matched terms: {{ normalizedCondition.matchedTerms.length ? normalizedCondition.matchedTerms.join(', ') : 'none' }}</p>
+
+        @if (normalizedCondition.suggestedAttributes.length) {
+          <div class="ai-list">
+            @for (item of normalizedCondition.suggestedAttributes; track item.key) {
+              <p>
+                <strong>{{ item.key }}</strong>:
+                @if (item.boolValue !== null) {
+                  <span>{{ item.boolValue }}</span>
+                } @else if (item.stringValue !== null) {
+                  <span>{{ item.stringValue }}</span>
+                } @else if (item.numberValue !== null) {
+                  <span>{{ item.numberValue }}</span>
+                } @else if (item.dateValue !== null) {
+                  <span>{{ item.dateValue }}</span>
+                } @else {
+                  <span>unset</span>
+                }
+              </p>
+            }
+          </div>
+        } @else {
+          <p class="hint">No suggested attributes returned.</p>
+        }
+      </div>
+    }
+
+    @if (riskScore) {
+      <div class="ai-card">
+        <h3>Risk Score</h3>
+        <p class="hint"><strong>{{ riskScore.score }}</strong> · band {{ riskScore.band }}</p>
+        @if (riskScore.reasons.length) {
+          <ul class="reason-list">
+            @for (reason of riskScore.reasons; track reason) {
+              <li>{{ reason }}</li>
+            }
+          </ul>
+        } @else {
+          <p class="hint">No reasons returned.</p>
+        }
+      </div>
+    }
+  </section>
+
+  <section class="panel">
     <h2>Selected Person Attributes</h2>
     @if (!selectedPerson) {
       <p class="hint">Select a person to edit their attributes.</p>
