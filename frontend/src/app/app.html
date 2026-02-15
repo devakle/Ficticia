@@ -279,7 +279,7 @@
               <p>
                 <strong>{{ item.key }}</strong>:
                 @if (item.boolValue !== null) {
-                  <span>{{ item.boolValue }}</span>
+                  <span>{{ item.boolValue ? 'Sí' : 'No' }}</span>
                 } @else if (item.stringValue !== null) {
                   <span>{{ item.stringValue }}</span>
                 } @else if (item.numberValue !== null) {
@@ -346,8 +346,8 @@
             @if (attr.dataType === 1) {
               <select [(ngModel)]="attr.boolValue">
                 <option [ngValue]="null">Sin definir</option>
-                <option [ngValue]="true">Verdadero</option>
-                <option [ngValue]="false">Falso</option>
+                <option [ngValue]="true">Sí</option>
+                <option [ngValue]="false">No</option>
               </select>
             }
 
