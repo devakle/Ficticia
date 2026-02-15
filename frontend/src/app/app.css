@@ -46,7 +46,7 @@ h3 {
 }
 
 h1 {
-  font-size: 2rem;
+  font-size: clamp(1.4rem, 4.6vw, 2rem);
 }
 
 h2 {
@@ -63,7 +63,7 @@ h3 {
 .admin-page {
   max-width: 1300px;
   margin: 0 auto;
-  padding: 1.2rem;
+  padding: clamp(0.75rem, 2.5vw, 1.2rem);
   display: grid;
   gap: 1rem;
 }
@@ -95,6 +95,8 @@ h3 {
 .status {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.6rem;
 }
 
@@ -219,6 +221,7 @@ button:disabled {
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.6rem;
   margin-top: 0.8rem;
 }
@@ -375,7 +378,9 @@ tr.selected {
 
 .definition-item header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
+  gap: 0.4rem;
   margin-bottom: 0.5rem;
 }
 
@@ -533,7 +538,42 @@ small {
     align-items: flex-start;
   }
 
+  .status {
+    justify-content: flex-start;
+  }
+
   .filter-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .panel {
+    padding: 0.8rem;
+    border-radius: 10px;
+  }
+
+  .status {
+    width: 100%;
+  }
+
+  .actions button {
+    flex: 1 1 100%;
+  }
+
+  .actions.split {
+    justify-content: flex-start;
+  }
+
+  .inline-checkbox {
+    align-items: flex-start;
+  }
+
+  .table-wrap {
+    margin-top: 0.6rem;
+  }
+
+  table {
+    min-width: 520px;
   }
 }
