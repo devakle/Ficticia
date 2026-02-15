@@ -22,7 +22,7 @@ import { RiskBandService } from './features/ai/services/risk-band.service';
 import { AttributesApiService } from './features/attributes/services/attributes-api.service';
 import { ValidationRulesService } from './features/attributes/services/validation-rules.service';
 import { PeopleApiService } from './features/people/services/people-api.service';
-import { PeoplePaginationService } from './features/people/services/people-pagination.service';
+import { PaginationItem, PeoplePaginationService } from './features/people/services/people-pagination.service';
 
 @Component({
   selector: 'app-root',
@@ -92,6 +92,7 @@ export class App {
   };
 
   definitions: AttributeDefinitionDto[] = [];
+  private savedFilterableDefinitions: AttributeDefinitionDto[] = [];
   newDefinition = {
     key: '',
     displayName: '',
@@ -224,6 +225,7 @@ export class App {
     await this.run(async () => {
       this.definitions = await this.attributesApi.getDefinitions(this.apiBaseUrl, this.token, !this.includeInactiveDefinitions);
       this.hydrateDefinitionRuleDrafts();
+      this.refreshSavedFilterableDefinitions();
       this.syncDynamicFiltersWithDefinitions();
       this.notifySuccess(`Se cargaron ${this.definitions.length} definiciones de atributos.`);
     });
@@ -269,6 +271,8 @@ export class App {
 
       await this.attributesApi.updateDefinition(this.apiBaseUrl, this.token, definition.id, payload);
       definition.validationRulesJson = payload.validationRulesJson;
+      this.refreshSavedFilterableDefinitions();
+      this.syncDynamicFiltersWithDefinitions();
       this.notifySuccess(`Definición guardada: ${definition.key}.`);
 
       if (this.selectedPerson) {
@@ -420,6 +424,14 @@ export class App {
     return this.pagination.visibleRange(this.totalPeople, this.peopleSearch.page, this.peopleSearch.pageSize, this.people.length).to;
   }
 
+  get peoplePaginationItems(): PaginationItem[] {
+    return this.pagination.visiblePages(this.peopleSearch.page, this.totalPeoplePages, 3);
+  }
+
+  isPageNumber(item: PaginationItem): item is number {
+    return typeof item === 'number';
+  }
+
   goToPreviousPeoplePage(): void {
     this.goToPeoplePage(this.peopleSearch.page - 1);
   }
@@ -467,9 +479,7 @@ export class App {
   }
 
   get filterableDefinitions(): AttributeDefinitionDto[] {
-    return this.definitions
-      .filter(def => def.isActive && def.isFilterable)
-      .sort((a, b) => a.displayName.localeCompare(b.displayName));
+    return this.savedFilterableDefinitions;
   }
 
   onDynamicFilterKeyChange(index: number, key: string): void {
@@ -588,14 +598,19 @@ export class App {
       return;
     }
 
-    const byKey = new Map(this.filterableDefinitions.map(def => [def.key, def]));
+    const validKeys = new Set(this.filterableDefinitions.map(def => def.key));
+    this.peopleSearch.dynamicFilters = this.peopleSearch.dynamicFilters.filter(filter => !filter.key || validKeys.has(filter.key));
 
-    for (const filter of this.peopleSearch.dynamicFilters) {
-      if (filter.key && !byKey.has(filter.key)) {
-        filter.key = '';
-        filter.value = '';
-      }
+    if (!this.peopleSearch.dynamicFilters.length) {
+      this.peopleSearch.dynamicFilters.push({ key: '', value: '' });
     }
+  }
+
+  private refreshSavedFilterableDefinitions(): void {
+    this.savedFilterableDefinitions = this.definitions
+      .filter(def => def.isActive && def.isFilterable)
+      .map(def => ({ ...def }))
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
   }
 
   private hydrateDefinitionRuleDrafts(): void {

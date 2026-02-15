@@ -415,6 +415,28 @@ button:disabled {
   color: var(--subtle);
 }
 
+.pagination-page {
+  min-width: 2.4rem;
+  min-height: 2.35rem;
+  padding: 0.35rem 0.55rem;
+}
+
+.pagination-page.active,
+.pagination-page.active:hover:enabled {
+  background: linear-gradient(130deg, var(--accent), var(--accent-strong));
+  border-color: transparent;
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(15, 79, 122, 0.22);
+  transform: none;
+}
+
+.pagination-ellipsis {
+  color: var(--subtle);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0 0.18rem;
+}
+
 .dynamic-filters {
   margin-top: 0.9rem;
 }

@@ -153,6 +153,21 @@
           >
             Anterior
           </button>
+          @for (item of peoplePaginationItems; track $index) {
+            @if (isPageNumber(item)) {
+              <button
+                type="button"
+                class="secondary pagination-page"
+                [class.active]="item === peopleSearch.page"
+                (click)="goToPeoplePage(item)"
+                [disabled]="busy || !token || item === peopleSearch.page"
+              >
+                {{ item }}
+              </button>
+            } @else {
+              <span class="pagination-ellipsis">...</span>
+            }
+          }
           <span class="pagination-status">Página {{ peopleSearch.page }} de {{ totalPeoplePages }}</span>
           <button
             type="button"
