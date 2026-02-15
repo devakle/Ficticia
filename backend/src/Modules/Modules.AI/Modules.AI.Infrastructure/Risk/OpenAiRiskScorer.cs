@@ -44,6 +44,7 @@ public sealed class OpenAiRiskScorer : IRiskScorer
             system: "You are an insurance risk assistant. Score risk from provided structured features. " +
                     "Be conservative. Output must match JSON schema. " +
                     "Reasons must reference only the given features. " +
+                    "Never use operational flags such as isActive or isFilterable to change score or reasons. " +
                     "Write all reasons in Spanish.",
             user: JsonSerializer.Serialize(f),
             schemaName: "risk_score",

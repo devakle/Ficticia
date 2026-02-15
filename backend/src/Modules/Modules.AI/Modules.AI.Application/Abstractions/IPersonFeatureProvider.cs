@@ -8,7 +8,6 @@ public interface IPersonFeatureProvider
 public sealed record PersonRiskFeatures(
     int Age,
     int Gender, // o string
-    bool IsActive,
     string? ConditionCode,
     bool? Diabetic,
     bool? Smoker

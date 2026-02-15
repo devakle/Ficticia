@@ -46,6 +46,6 @@ public sealed class PeoplePersonFeatureProvider : IPersonFeatureProvider
             ? values.FirstOrDefault(v => v.AttributeDefinitionId == cid)?.ValueString?.Trim().ToLowerInvariant()
             : null;
 
-        return new PersonRiskFeatures(person.Age, (int)person.Gender, person.IsActive, conditionCode, diabetic, smoker);
+        return new PersonRiskFeatures(person.Age, (int)person.Gender, conditionCode, diabetic, smoker);
     }
 }
