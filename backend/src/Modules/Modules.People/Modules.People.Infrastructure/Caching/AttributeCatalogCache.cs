@@ -25,9 +25,16 @@ public sealed class AttributeCatalogCache : IAttributeCatalogCache
         var key = $"{CacheKey}:{onlyActive}";
         if (_cache is not null)
         {
-            var cached = await _cache.GetStringAsync(key, ct);
-            if (cached is not null)
-                return JsonSerializer.Deserialize<List<AttributeDefinitionDto>>(cached)!;
+            try
+            {
+                var cached = await _cache.GetStringAsync(key, ct);
+                if (cached is not null)
+                    return JsonSerializer.Deserialize<List<AttributeDefinitionDto>>(cached)!;
+            }
+            catch (Exception)
+            {
+                // If distributed cache is down/unreachable, fallback to DB instead of failing request.
+            }
         }
 
         var q = _db.AttributeDefinitions.AsNoTracking();
@@ -41,21 +48,41 @@ public sealed class AttributeCatalogCache : IAttributeCatalogCache
 
         if (_cache is not null)
         {
-            await _cache.SetStringAsync(
-                key,
-                JsonSerializer.Serialize(items),
-                new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30) },
-                ct
-            );
+            try
+            {
+                await _cache.SetStringAsync(
+                    key,
+                    JsonSerializer.Serialize(items),
+                    new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30) },
+                    ct
+                );
+            }
+            catch (Exception)
+            {
+                // Ignore cache write failures; source of truth is DB.
+            }
         }
 
         return items;
     }
 
     public Task InvalidateAsync(CancellationToken ct)
-        => _cache is null
-            ? Task.CompletedTask
-            : Task.WhenAll(
-                _cache.RemoveAsync($"{CacheKey}:True", ct),
+    {
+        if (_cache is null) return Task.CompletedTask;
+        return InvalidateSafeAsync(ct);
+    }
+
+    private async Task InvalidateSafeAsync(CancellationToken ct)
+    {
+        try
+        {
+            await Task.WhenAll(
+                _cache!.RemoveAsync($"{CacheKey}:True", ct),
                 _cache.RemoveAsync($"{CacheKey}:False", ct));
+        }
+        catch (Exception)
+        {
+            // Ignore cache invalidation failures; source of truth is DB.
+        }
+    }
 }

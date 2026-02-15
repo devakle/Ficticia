@@ -108,8 +108,12 @@ builder.Services.AddSwaggerGen(c =>
 // BuildingBlocks (middlewares + validation pipeline)
 builder.Services.AddBuildingBlocks();
 
-// Redis (opcional; si no lo tenés aún, borrá estas 2 líneas)
-builder.Services.AddStackExchangeRedisCache(opt => opt.Configuration = "localhost:6379");
+// Redis opcional
+var redisConnection = builder.Configuration.GetValue<string>("Redis:ConnectionString");
+if (!string.IsNullOrWhiteSpace(redisConnection))
+{
+    builder.Services.AddStackExchangeRedisCache(opt => opt.Configuration = redisConnection);
+}
 
 // People module (DbContext + repos + UoW + cache)
 builder.Services.AddPeopleModule(builder.Configuration);
