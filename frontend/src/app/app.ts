@@ -87,6 +87,22 @@ interface ToastMessage {
   text: string;
 }
 
+interface DynamicFilterInput {
+  key: string;
+  value: string | number | null;
+}
+
+interface ValidationRulesDraft {
+  required: boolean;
+  maxLength: number | null;
+  regex: string;
+  min: number | null;
+  max: number | null;
+  minDate: string;
+  maxDate: string;
+  allowedValuesText: string;
+}
+
 @Component({
   selector: 'app-root',
   imports: [FormsModule, DecimalPipe],
@@ -132,7 +148,7 @@ export class App {
     maxAge: null as number | null,
     page: 1,
     pageSize: 20,
-    dynamicFilters: [{ key: '', value: '' }]
+    dynamicFilters: [{ key: '', value: '' }] as DynamicFilterInput[]
   };
 
   people: PersonDto[] = [];
@@ -151,9 +167,10 @@ export class App {
     key: '',
     displayName: '',
     dataType: 1 as AttributeDataType,
-    isFilterable: true,
-    validationRulesJson: ''
+    isFilterable: true
   };
+  newDefinitionRules: ValidationRulesDraft = this.emptyRulesDraft();
+  definitionRulesDrafts: Record<string, ValidationRulesDraft> = {};
 
   personAttributes: PersonAttributeFormItemDto[] = [];
   conditionText = '';
@@ -209,7 +226,7 @@ export class App {
 
       for (const filter of this.peopleSearch.dynamicFilters) {
         const key = filter.key.trim();
-        const value = filter.value.trim();
+        const value = String(filter.value ?? '').trim();
         if (key && value) {
           params = params.set(`attr.${key}`, value);
         }
@@ -304,6 +321,8 @@ export class App {
       this.definitions = await firstValueFrom(
         this.http.get<AttributeDefinitionDto[]>(url, { headers: this.authHeaders, params })
       );
+      this.hydrateDefinitionRuleDrafts();
+      this.syncDynamicFiltersWithDefinitions();
       this.notifySuccess(`Se cargaron ${this.definitions.length} definiciones de atributos.`);
     });
   }
@@ -316,7 +335,7 @@ export class App {
         displayName: this.newDefinition.displayName.trim(),
         dataType: this.newDefinition.dataType,
         isFilterable: this.newDefinition.isFilterable,
-        validationRulesJson: this.nullIfEmpty(this.newDefinition.validationRulesJson)
+        validationRulesJson: this.buildValidationRulesJson(this.newDefinition.dataType, this.newDefinitionRules)
       };
 
       await firstValueFrom(this.http.post<AttributeDefinitionDto>(url, payload, { headers: this.authHeaders }));
@@ -325,9 +344,9 @@ export class App {
         key: '',
         displayName: '',
         dataType: 1,
-        isFilterable: true,
-        validationRulesJson: ''
+        isFilterable: true
       };
+      this.newDefinitionRules = this.emptyRulesDraft();
 
       this.notifySuccess('Definicion de atributo creada.');
       await this.loadDefinitions();
@@ -342,10 +361,14 @@ export class App {
         displayName: definition.displayName.trim(),
         isFilterable: definition.isFilterable,
         isActive: definition.isActive,
-        validationRulesJson: this.nullIfEmpty(definition.validationRulesJson ?? '')
+        validationRulesJson: this.buildValidationRulesJson(
+          definition.dataType,
+          this.definitionRulesDraft(definition.id, definition.dataType, definition.validationRulesJson)
+        )
       };
 
       await firstValueFrom(this.http.put<void>(url, payload, { headers: this.authHeaders }));
+      definition.validationRulesJson = payload.validationRulesJson;
       this.notifySuccess(`Definicion guardada: ${definition.key}.`);
 
       if (this.selectedPerson) {
@@ -496,6 +519,93 @@ export class App {
     }
   }
 
+  clearDynamicFilterDefinition(index: number): void {
+    const filter = this.peopleSearch.dynamicFilters[index];
+    if (!filter) {
+      return;
+    }
+
+    filter.key = '';
+    filter.value = '';
+  }
+
+  get filterableDefinitions(): AttributeDefinitionDto[] {
+    return this.definitions
+      .filter(def => def.isActive && def.isFilterable)
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }
+
+  onDynamicFilterKeyChange(index: number, key: string): void {
+    const filter = this.peopleSearch.dynamicFilters[index];
+    if (!filter) {
+      return;
+    }
+
+    filter.key = key ?? '';
+    filter.value = '';
+  }
+
+  dynamicFilterType(filter: DynamicFilterInput): AttributeDataType | null {
+    return this.dynamicFilterDefinition(filter)?.dataType ?? null;
+  }
+
+  dynamicFilterAllowedValues(filter: DynamicFilterInput): string[] {
+    const def = this.dynamicFilterDefinition(filter);
+    if (!def || def.dataType !== 5 || !def.validationRulesJson) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(def.validationRulesJson) as { allowedValues?: unknown; AllowedValues?: unknown };
+      const rawAllowed = parsed.allowedValues ?? parsed.AllowedValues;
+      if (!Array.isArray(rawAllowed)) {
+        return [];
+      }
+
+      return rawAllowed
+        .filter((x): x is string => typeof x === 'string')
+        .map(x => x.trim())
+        .filter(x => x.length > 0);
+    } catch {
+      return [];
+    }
+  }
+
+  dynamicFilterValuePlaceholder(filter: DynamicFilterInput): string {
+    const dataType = this.dynamicFilterType(filter);
+    if (dataType === 1) {
+      return 'Si o No';
+    }
+    if (dataType === 3) {
+      return 'numero';
+    }
+    if (dataType === 4) {
+      return 'fecha';
+    }
+    return 'valor';
+  }
+
+  definitionRulesForNewPreview(): string {
+    return this.validationRulesPreview(this.newDefinition.dataType, this.newDefinitionRules);
+  }
+
+  definitionRulesForPreview(definition: AttributeDefinitionDto): string {
+    const draft = this.definitionRulesDraft(definition.id, definition.dataType, definition.validationRulesJson);
+    return this.validationRulesPreview(definition.dataType, draft);
+  }
+
+  definitionRulesDraft(
+    definitionId: string,
+    dataType: AttributeDataType,
+    rawJson: string | null
+  ): ValidationRulesDraft {
+    if (!this.definitionRulesDrafts[definitionId]) {
+      this.definitionRulesDrafts[definitionId] = this.parseRulesDraft(dataType, rawJson);
+    }
+
+    return this.definitionRulesDrafts[definitionId];
+  }
+
   typeName(type: AttributeDataType): string {
     return this.attributeTypes.find(t => t.value === type)?.label ?? String(type);
   }
@@ -560,6 +670,179 @@ export class App {
       page: raw.page ?? raw.Page ?? 1,
       pageSize: raw.pageSize ?? raw.PageSize ?? 20
     };
+  }
+
+  private syncDynamicFiltersWithDefinitions(): void {
+    if (!this.peopleSearch.dynamicFilters.length) {
+      this.peopleSearch.dynamicFilters.push({ key: '', value: '' });
+      return;
+    }
+
+    const byKey = new Map(this.filterableDefinitions.map(def => [def.key, def]));
+
+    for (const filter of this.peopleSearch.dynamicFilters) {
+      if (filter.key && !byKey.has(filter.key)) {
+        filter.key = '';
+        filter.value = '';
+      }
+    }
+  }
+
+  private hydrateDefinitionRuleDrafts(): void {
+    const next: Record<string, ValidationRulesDraft> = {};
+
+    for (const def of this.definitions) {
+      next[def.id] = this.definitionRulesDrafts[def.id] ?? this.parseRulesDraft(def.dataType, def.validationRulesJson);
+    }
+
+    this.definitionRulesDrafts = next;
+  }
+
+  private dynamicFilterDefinition(filter: DynamicFilterInput): AttributeDefinitionDto | null {
+    if (!filter.key) {
+      return null;
+    }
+
+    return this.filterableDefinitions.find(def => def.key === filter.key) ?? null;
+  }
+
+  private emptyRulesDraft(): ValidationRulesDraft {
+    return {
+      required: false,
+      maxLength: null,
+      regex: '',
+      min: null,
+      max: null,
+      minDate: '',
+      maxDate: '',
+      allowedValuesText: ''
+    };
+  }
+
+  private parseRulesDraft(dataType: AttributeDataType, rawJson: string | null): ValidationRulesDraft {
+    const draft = this.emptyRulesDraft();
+    const parsed = this.tryParseRules(rawJson);
+    if (!parsed) {
+      return draft;
+    }
+
+    const required = parsed['required'] ?? parsed['Required'];
+    draft.required = typeof required === 'boolean' ? required : false;
+
+    if (dataType === 2) {
+      const maxLength = parsed['maxLength'] ?? parsed['MaxLength'];
+      draft.maxLength = typeof maxLength === 'number' ? maxLength : null;
+      const regex = parsed['regex'] ?? parsed['Regex'];
+      draft.regex = typeof regex === 'string' ? regex : '';
+    }
+
+    if (dataType === 3) {
+      const min = parsed['min'] ?? parsed['Min'];
+      const max = parsed['max'] ?? parsed['Max'];
+      draft.min = typeof min === 'number' ? min : null;
+      draft.max = typeof max === 'number' ? max : null;
+    }
+
+    if (dataType === 4) {
+      const minDate = parsed['minDate'] ?? parsed['MinDate'];
+      const maxDate = parsed['maxDate'] ?? parsed['MaxDate'];
+      draft.minDate = this.normalizeDateInput(minDate);
+      draft.maxDate = this.normalizeDateInput(maxDate);
+    }
+
+    if (dataType === 5) {
+      const allowed = parsed['allowedValues'] ?? parsed['AllowedValues'];
+      if (Array.isArray(allowed)) {
+        draft.allowedValuesText = allowed
+          .filter((x): x is string => typeof x === 'string')
+          .map(x => x.trim())
+          .filter(x => x.length > 0)
+          .join(', ');
+      }
+    }
+
+    return draft;
+  }
+
+  private buildValidationRulesJson(dataType: AttributeDataType, draft: ValidationRulesDraft): string | null {
+    const rules: Record<string, unknown> = {};
+
+    if (draft.required) {
+      rules['required'] = true;
+    }
+
+    if (dataType === 2) {
+      if (draft.maxLength !== null && Number.isFinite(draft.maxLength)) {
+        rules['maxLength'] = draft.maxLength;
+      }
+      const regex = draft.regex.trim();
+      if (regex) {
+        rules['regex'] = regex;
+      }
+    }
+
+    if (dataType === 3) {
+      if (draft.min !== null && Number.isFinite(draft.min)) {
+        rules['min'] = draft.min;
+      }
+      if (draft.max !== null && Number.isFinite(draft.max)) {
+        rules['max'] = draft.max;
+      }
+    }
+
+    if (dataType === 4) {
+      const minDate = draft.minDate.trim();
+      const maxDate = draft.maxDate.trim();
+      if (minDate) {
+        rules['minDate'] = minDate;
+      }
+      if (maxDate) {
+        rules['maxDate'] = maxDate;
+      }
+    }
+
+    if (dataType === 5) {
+      const allowedValues = this.parseAllowedValues(draft.allowedValuesText);
+      if (allowedValues.length) {
+        rules['allowedValues'] = allowedValues;
+      }
+    }
+
+    return Object.keys(rules).length ? JSON.stringify(rules) : null;
+  }
+
+  private validationRulesPreview(dataType: AttributeDataType, draft: ValidationRulesDraft): string {
+    const json = this.buildValidationRulesJson(dataType, draft);
+    return json ?? '(sin reglas)';
+  }
+
+  private parseAllowedValues(source: string): string[] {
+    return source
+      .split(/[\n,;]+/)
+      .map(x => x.trim())
+      .filter(x => x.length > 0);
+  }
+
+  private normalizeDateInput(value: unknown): string {
+    if (typeof value !== 'string' || !value.trim()) {
+      return '';
+    }
+
+    const raw = value.trim();
+    return raw.length >= 10 ? raw.slice(0, 10) : raw;
+  }
+
+  private tryParseRules(rawJson: string | null): Record<string, unknown> | null {
+    if (!rawJson || !rawJson.trim()) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(rawJson);
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+    } catch {
+      return null;
+    }
   }
 
   private normalizeRiskBand(band: string | number): 'low' | 'medium' | 'high' | 'unknown' {

@@ -160,12 +160,14 @@ label {
 
 input,
 select,
+textarea,
 button {
   font: inherit;
 }
 
 input,
-select {
+select,
+textarea {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0.52rem 0.62rem;
@@ -177,13 +179,15 @@ select {
 }
 
 :host.dark-theme input,
-:host.dark-theme select {
+:host.dark-theme select,
+:host.dark-theme textarea {
   background: #101718;
   color: var(--ink);
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: 2px solid #86ddc8;
   outline-offset: 1px;
 }
@@ -319,9 +323,16 @@ button:disabled {
 
 .filter-row {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  grid-template-columns: 1.1fr 1fr auto auto auto;
   gap: 0.5rem;
   margin-bottom: 0.4rem;
+  align-items: center;
+}
+
+.filter-key {
+  color: var(--subtle);
+  font-size: 0.78rem;
+  white-space: nowrap;
 }
 
 .table-wrap {
@@ -395,6 +406,28 @@ tr.selected {
 .muted {
   color: var(--subtle);
   font-size: 0.82rem;
+}
+
+.rule-editor {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 0.65rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.rule-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.rule-json-preview {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--subtle);
+  overflow-wrap: anywhere;
 }
 
 .span-two {

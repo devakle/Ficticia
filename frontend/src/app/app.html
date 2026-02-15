@@ -89,8 +89,36 @@
         <p class="hint">Filtros dinamicos (`attr.&lt;key&gt;`)</p>
         @for (filter of peopleSearch.dynamicFilters; track $index) {
           <div class="filter-row">
-            <input [(ngModel)]="filter.key" placeholder="clave (ej. diabetico)" />
-            <input [(ngModel)]="filter.value" placeholder="valor" />
+            <select [(ngModel)]="filter.key" (ngModelChange)="onDynamicFilterKeyChange($index, $event)">
+              <option [ngValue]="''">Seleccionar atributo filtrable</option>
+              @for (def of filterableDefinitions; track def.id) {
+                <option [ngValue]="def.key">{{ def.displayName }}</option>
+              }
+            </select>
+            @if (dynamicFilterType(filter) === 1) {
+              <select [(ngModel)]="filter.value">
+                <option [ngValue]="''">Si/No</option>
+                <option [ngValue]="'true'">Si</option>
+                <option [ngValue]="'false'">No</option>
+              </select>
+            } @else if (dynamicFilterType(filter) === 5 && dynamicFilterAllowedValues(filter).length > 0) {
+              <select [(ngModel)]="filter.value">
+                <option [ngValue]="''">Seleccionar valor</option>
+                @for (allowedValue of dynamicFilterAllowedValues(filter); track allowedValue) {
+                  <option [ngValue]="allowedValue">{{ allowedValue }}</option>
+                }
+              </select>
+            } @else if (dynamicFilterType(filter) === 3) {
+              <input [(ngModel)]="filter.value" type="number" step="any" [placeholder]="dynamicFilterValuePlaceholder(filter)" />
+            } @else if (dynamicFilterType(filter) === 4) {
+              <input [(ngModel)]="filter.value" type="date" [placeholder]="dynamicFilterValuePlaceholder(filter)" />
+            } @else {
+              <input [(ngModel)]="filter.value" [placeholder]="dynamicFilterValuePlaceholder(filter)" />
+            }
+            <small class="filter-key">{{ filter.key ? ('attr.' + filter.key) : 'sin seleccion' }}</small>
+            <button type="button" class="secondary" (click)="clearDynamicFilterDefinition($index)" [disabled]="!filter.key">
+              Limpiar
+            </button>
             <button type="button" class="secondary" (click)="removeDynamicFilter($index)">Quitar</button>
           </div>
         }
@@ -201,10 +229,61 @@
           <input type="checkbox" [(ngModel)]="newDefinition.isFilterable" />
           Es filtrable
         </label>
-        <label class="span-two">
-          Reglas de validacion JSON
-          <input [(ngModel)]="newDefinition.validationRulesJson" placeholder='{"maxLength": 200}' />
-        </label>
+        <div class="rule-editor span-two">
+          <p class="rule-title">Reglas de validacion</p>
+          <label class="inline-checkbox">
+            <input type="checkbox" [(ngModel)]="newDefinitionRules.required" />
+            Requerido
+          </label>
+
+          @if (newDefinition.dataType === 2) {
+            <div class="grid two compact">
+              <label>
+                Maximo de caracteres
+                <input [(ngModel)]="newDefinitionRules.maxLength" type="number" min="1" />
+              </label>
+              <label>
+                Regex
+                <input [(ngModel)]="newDefinitionRules.regex" placeholder="^[A-Za-z ]+$" />
+              </label>
+            </div>
+          }
+
+          @if (newDefinition.dataType === 3) {
+            <div class="grid two compact">
+              <label>
+                Minimo
+                <input [(ngModel)]="newDefinitionRules.min" type="number" step="any" />
+              </label>
+              <label>
+                Maximo
+                <input [(ngModel)]="newDefinitionRules.max" type="number" step="any" />
+              </label>
+            </div>
+          }
+
+          @if (newDefinition.dataType === 4) {
+            <div class="grid two compact">
+              <label>
+                Fecha minima
+                <input [(ngModel)]="newDefinitionRules.minDate" type="date" />
+              </label>
+              <label>
+                Fecha maxima
+                <input [(ngModel)]="newDefinitionRules.maxDate" type="date" />
+              </label>
+            </div>
+          }
+
+          @if (newDefinition.dataType === 5) {
+            <label>
+              Valores permitidos (separados por coma o salto de linea)
+              <textarea [(ngModel)]="newDefinitionRules.allowedValuesText" rows="2" placeholder="hipertension, diabetes, asma"></textarea>
+            </label>
+          }
+
+          <p class="rule-json-preview"><code>{{ definitionRulesForNewPreview() }}</code></p>
+        </div>
       </div>
 
       <div class="actions">
@@ -231,10 +310,89 @@
                 <input type="checkbox" [(ngModel)]="def.isActive" />
                 Activa
               </label>
-              <label class="span-two">
-                Reglas de validacion JSON
-                <input [(ngModel)]="def.validationRulesJson" />
-              </label>
+              <div class="rule-editor span-two">
+                <p class="rule-title">Reglas de validacion</p>
+                <label class="inline-checkbox">
+                  <input
+                    type="checkbox"
+                    [(ngModel)]="definitionRulesDraft(def.id, def.dataType, def.validationRulesJson).required"
+                  />
+                  Requerido
+                </label>
+
+                @if (def.dataType === 2) {
+                  <div class="grid two compact">
+                    <label>
+                      Maximo de caracteres
+                      <input
+                        [(ngModel)]="definitionRulesDraft(def.id, def.dataType, def.validationRulesJson).maxLength"
+                        type="number"
+                        min="1"
+                      />
+                    </label>
+                    <label>
+                      Regex
+                      <input
+                        [(ngModel)]="definitionRulesDraft(def.id, def.dataType, def.validationRulesJson).regex"
+                        placeholder="^[A-Za-z ]+$"
+                      />
+                    </label>
+                  </div>
+                }
+
+                @if (def.dataType === 3) {
+                  <div class="grid two compact">
+                    <label>
+                      Minimo
+                      <input
+                        [(ngModel)]="definitionRulesDraft(def.id, def.dataType, def.validationRulesJson).min"
+                        type="number"
+                        step="any"
+                      />
+                    </label>
+                    <label>
+                      Maximo
+                      <input
+                        [(ngModel)]="definitionRulesDraft(def.id, def.dataType, def.validationRulesJson).max"
+                        type="number"
+                        step="any"
+                      />
+                    </label>
+                  </div>
+                }
+
+                @if (def.dataType === 4) {
+                  <div class="grid two compact">
+                    <label>
+                      Fecha minima
+                      <input
+                        [(ngModel)]="definitionRulesDraft(def.id, def.dataType, def.validationRulesJson).minDate"
+                        type="date"
+                      />
+                    </label>
+                    <label>
+                      Fecha maxima
+                      <input
+                        [(ngModel)]="definitionRulesDraft(def.id, def.dataType, def.validationRulesJson).maxDate"
+                        type="date"
+                      />
+                    </label>
+                  </div>
+                }
+
+                @if (def.dataType === 5) {
+                  <label>
+                    Valores permitidos (separados por coma o salto de linea)
+                    <textarea
+                      [(ngModel)]="definitionRulesDraft(def.id, def.dataType, def.validationRulesJson).allowedValuesText"
+                      rows="2"
+                      placeholder="hipertension, diabetes, asma"
+                    ></textarea>
+                  </label>
+                }
+
+                <p class="rule-json-preview"><code>{{ definitionRulesForPreview(def) }}</code></p>
+              </div>
             </div>
             <div class="actions">
               <button type="button" class="secondary" (click)="updateDefinition(def)" [disabled]="busy || !token">Guardar</button>
