@@ -97,6 +97,29 @@ public sealed class PeopleEndpointsTests
     }
 
     [Fact]
+    public async Task Create_should_return_conflict_for_duplicate_identification()
+    {
+        var token = await _client.LoginAsAdminAsync();
+        _client.SetBearer(token);
+
+        var identification = $"DUP-{Guid.NewGuid():N}";
+        await _client.CreatePersonAsync(identificationNumber: identification);
+
+        var duplicate = await _client.PostAsJsonAsync("/api/v1/people", new
+        {
+            fullName = "Duplicate Person",
+            identificationNumber = identification,
+            age = 30,
+            gender = 1
+        });
+
+        duplicate.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        using var body = await duplicate.ReadJsonAsync();
+        body.RootElement.GetProperty("code").GetString().Should().Be("people.duplicate_identification");
+    }
+
+    [Fact]
     public async Task Update_should_fail_when_route_and_body_ids_mismatch()
     {
         var token = await _client.LoginAsAdminAsync();
@@ -132,6 +155,39 @@ public sealed class PeopleEndpointsTests
         });
 
         update.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Update_should_return_conflict_for_duplicate_identification()
+    {
+        var token = await _client.LoginAsAdminAsync();
+        _client.SetBearer(token);
+
+        var firstId = await _client.CreatePersonAsync(identificationNumber: $"A-{Guid.NewGuid():N}");
+        var secondIdentification = $"B-{Guid.NewGuid():N}";
+        var secondId = await _client.CreatePersonAsync(
+            fullName: "Second Person",
+            identificationNumber: secondIdentification);
+
+        var update = await _client.PutAsJsonAsync($"/api/v1/people/{firstId}", new
+        {
+            id = firstId,
+            fullName = "First Person Updated",
+            identificationNumber = secondIdentification,
+            age = 35,
+            gender = 1
+        });
+
+        update.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        using var updateBody = await update.ReadJsonAsync();
+        updateBody.RootElement.GetProperty("code").GetString().Should().Be("people.duplicate_identification");
+
+        var getSecond = await _client.GetAsync($"/api/v1/people/{secondId}");
+        getSecond.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var getSecondBody = await getSecond.ReadJsonAsync();
+        getSecondBody.RootElement.GetProperty("identificationNumber").GetString().Should().Be(secondIdentification);
     }
 
     [Fact]

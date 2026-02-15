@@ -22,6 +22,13 @@ internal sealed class UpdatePersonHandler : IRequestHandler<UpdatePersonCommand,
         var person = await _people.GetByIdAsync(req.Id, ct);
         if (person is null) return Result.Fail(PeopleErrors.NotFound, "Persona no encontrada");
 
+        if (await _people.ExistsByIdentificationAsync(req.IdentificationNumber.Trim(), req.Id, ct))
+        {
+            return Result.Fail(
+                PeopleErrors.DuplicateIdentification,
+                $"Ya existe una persona con identificación '{req.IdentificationNumber.Trim()}'");
+        }
+
         person.Update(req.FullName, req.IdentificationNumber, req.Age, (Gender)req.Gender);
 
         _people.Update(person);

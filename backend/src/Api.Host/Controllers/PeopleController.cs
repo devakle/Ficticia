@@ -7,6 +7,7 @@ using Modules.People.Contracts.Dtos;
 using BuildingBlocks.Abstractions.Common;
 using Modules.People.Application.Attributes.Queries;
 using Microsoft.AspNetCore.Authorization;
+using Modules.People.Application.Abstractions;
 
 namespace Api.Host.Controllers;
 
@@ -22,7 +23,7 @@ public sealed class PeopleController : ControllerBase
         [FromServices] IMediator mediator)
     {
         var res = await mediator.Send(cmd);
-        return res.IsSuccess ? Ok(res.Value) : BadRequest(res.Error);
+        return res.IsSuccess ? Ok(res.Value) : ToErrorResult(res.Error!);
     }
 
     [HttpPut("{id:guid}")]
@@ -34,7 +35,7 @@ public sealed class PeopleController : ControllerBase
         if (id != cmd.Id) return BadRequest("Id mismatch");
 
         var res = await mediator.Send(cmd);
-        return res.IsSuccess ? NoContent() : NotFound(res.Error);
+        return res.IsSuccess ? NoContent() : ToErrorResult(res.Error!);
     }
 
     [HttpPatch("{id:guid}/status")]
@@ -46,14 +47,14 @@ public sealed class PeopleController : ControllerBase
         if (id != cmd.Id) return BadRequest("Id mismatch");
 
         var res = await mediator.Send(cmd);
-        return res.IsSuccess ? NoContent() : NotFound(res.Error);
+        return res.IsSuccess ? NoContent() : ToErrorResult(res.Error!);
     }
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<PersonDto>> GetById(Guid id, [FromServices] IMediator mediator)
     {
         var res = await mediator.Send(new GetPersonByIdQuery(id));
-        return res.IsSuccess ? Ok(res.Value) : NotFound(res.Error);
+        return res.IsSuccess ? Ok(res.Value) : ToErrorResult(res.Error!);
     }
 
     // filtros dinámicos por querystring: attr.diabetic=true
@@ -112,7 +113,7 @@ public sealed class PeopleController : ControllerBase
         [FromServices] IMediator mediator)
     {
         var res = await mediator.Send(new GetPersonAttributesQuery(personId));
-        return res.IsSuccess ? Ok(res.Value) : NotFound(res.Error);
+        return res.IsSuccess ? Ok(res.Value) : ToErrorResult(res.Error!);
     }
 
     [HttpGet("{personId:guid}/attributes/form")]
@@ -122,7 +123,17 @@ public sealed class PeopleController : ControllerBase
         [FromServices] IMediator mediator = default!)
     {
         var res = await mediator.Send(new GetPersonAttributeFormQuery(personId, onlyActive));
-        return res.IsSuccess ? Ok(res.Value) : NotFound(res.Error);
+        return res.IsSuccess ? Ok(res.Value) : ToErrorResult(res.Error!);
+    }
+
+    private ActionResult ToErrorResult(Error error)
+    {
+        return error.Code switch
+        {
+            PeopleErrors.NotFound => NotFound(error),
+            PeopleErrors.DuplicateIdentification => Conflict(error),
+            _ => BadRequest(error)
+        };
     }
 
 }

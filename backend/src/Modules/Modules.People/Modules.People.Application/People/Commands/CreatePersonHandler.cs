@@ -21,6 +21,13 @@ internal sealed class CreatePersonHandler : IRequestHandler<CreatePersonCommand,
 
     public async Task<Result<PersonDto>> Handle(CreatePersonCommand req, CancellationToken ct)
     {
+        if (await _people.ExistsByIdentificationAsync(req.IdentificationNumber.Trim(), excludingPersonId: null, ct))
+        {
+            return Result<PersonDto>.Fail(
+                PeopleErrors.DuplicateIdentification,
+                $"Ya existe una persona con identificación '{req.IdentificationNumber.Trim()}'");
+        }
+
         var person = new Person(req.FullName, req.IdentificationNumber, req.Age, (Gender)req.Gender);
 
         await _people.AddAsync(person, ct);

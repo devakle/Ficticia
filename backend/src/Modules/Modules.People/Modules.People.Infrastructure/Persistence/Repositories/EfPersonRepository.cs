@@ -13,6 +13,11 @@ internal sealed class EfPersonRepository : IPersonRepository
     public Task<Person?> GetByIdAsync(Guid id, CancellationToken ct)
         => _db.People.FirstOrDefaultAsync(x => x.Id == id, ct);
 
+    public Task<bool> ExistsByIdentificationAsync(string identificationNumber, Guid? excludingPersonId, CancellationToken ct)
+        => _db.People.AnyAsync(
+            x => x.IdentificationNumber == identificationNumber && (!excludingPersonId.HasValue || x.Id != excludingPersonId.Value),
+            ct);
+
     public Task AddAsync(Person person, CancellationToken ct)
         => _db.People.AddAsync(person, ct).AsTask();
 
