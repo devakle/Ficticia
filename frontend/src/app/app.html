@@ -14,23 +14,23 @@
   </header>
 
   <section class="panel auth-panel">
-    <h2>Conexion</h2>
+    <h2>Conexión</h2>
     <div class="grid three">
       <label>
         URL base de API
-        <input [(ngModel)]="apiBaseUrl" placeholder="(vacio para proxy de Angular)" />
+        <input [(ngModel)]="apiBaseUrl" placeholder="(vacío para proxy de Angular)" />
       </label>
       <label>
         Correo
         <input [(ngModel)]="email" placeholder="admin@ficticia.local" />
       </label>
       <label>
-        Contrasena
+        Contraseña
         <input [(ngModel)]="password" type="password" placeholder="Admin123!" />
       </label>
     </div>
     <div class="actions">
-      <button type="button" (click)="login()" [disabled]="busy">Iniciar sesion y cargar datos</button>
+      <button type="button" (click)="login()" [disabled]="busy">Iniciar sesión y cargar datos</button>
     </div>
   </section>
 
@@ -38,7 +38,7 @@
     @for (note of notifications(); track note.id) {
       <article class="toast" [class.error]="note.type === 'error'">
         <p>{{ note.text }}</p>
-        <button type="button" class="toast-close" (click)="dismissNotification(note.id)" aria-label="Cerrar notificacion">×</button>
+        <button type="button" class="toast-close" (click)="dismissNotification(note.id)" aria-label="Cerrar notificación">×</button>
       </article>
     }
   </div>
@@ -53,7 +53,7 @@
           <input [(ngModel)]="peopleSearch.name" />
         </label>
         <label>
-          Identificacion
+          Identificación
           <input [(ngModel)]="peopleSearch.identificationNumber" />
         </label>
         <label>
@@ -68,15 +68,15 @@
 
       <div class="grid four">
         <label>
-          Edad minima
+          Edad mínima
           <input [(ngModel)]="peopleSearch.minAge" type="number" min="0" max="120" />
         </label>
         <label>
-          Edad maxima
+          Edad máxima
           <input [(ngModel)]="peopleSearch.maxAge" type="number" min="0" max="120" />
         </label>
         <label>
-          Pagina
+          Página
           <input
             [(ngModel)]="peopleSearch.page"
             type="number"
@@ -86,7 +86,7 @@
           />
         </label>
         <label>
-          Tamano de pagina
+          Tamaño de página
           <input
             [(ngModel)]="peopleSearch.pageSize"
             type="number"
@@ -99,7 +99,7 @@
       </div>
 
       <div class="dynamic-filters">
-        <p class="hint">Filtros dinamicos (`attr.&lt;key&gt;`)</p>
+        <p class="hint">Filtros dinámicos (`attr.&lt;key&gt;`)</p>
         @for (filter of peopleSearch.dynamicFilters; track $index) {
           <div class="filter-row">
             <select [(ngModel)]="filter.key" (ngModelChange)="onDynamicFilterKeyChange($index, $event)">
@@ -110,8 +110,8 @@
             </select>
             @if (dynamicFilterType(filter) === 1) {
               <select [(ngModel)]="filter.value">
-                <option [ngValue]="''">Si/No</option>
-                <option [ngValue]="'true'">Si</option>
+                <option [ngValue]="''">Sí/No</option>
+                <option [ngValue]="'true'">Sí</option>
                 <option [ngValue]="'false'">No</option>
               </select>
             } @else if (dynamicFilterType(filter) === 5 && dynamicFilterAllowedValues(filter).length > 0) {
@@ -128,7 +128,7 @@
             } @else {
               <input [(ngModel)]="filter.value" [placeholder]="dynamicFilterValuePlaceholder(filter)" />
             }
-            <small class="filter-key">{{ filter.key ? ('attr.' + filter.key) : 'sin seleccion' }}</small>
+            <small class="filter-key">{{ filter.key ? ('attr.' + filter.key) : 'sin selección' }}</small>
             <button type="button" class="secondary" (click)="clearDynamicFilterDefinition($index)" [disabled]="!filter.key">
               Limpiar
             </button>
@@ -153,7 +153,7 @@
           >
             Anterior
           </button>
-          <span class="pagination-status">Pagina {{ peopleSearch.page }} de {{ totalPeoplePages }}</span>
+          <span class="pagination-status">Página {{ peopleSearch.page }} de {{ totalPeoplePages }}</span>
           <button
             type="button"
             class="secondary"
@@ -172,7 +172,7 @@
               <th>Nombre</th>
               <th>ID</th>
               <th>Edad</th>
-              <th>Genero</th>
+              <th>Género</th>
               <th>Estado</th>
               <th></th>
             </tr>
@@ -199,7 +199,7 @@
           <input [(ngModel)]="personForm.fullName" />
         </label>
         <label>
-          Identificacion
+          Identificación
           <input [(ngModel)]="personForm.identificationNumber" />
         </label>
         <label>
@@ -207,7 +207,7 @@
           <input [(ngModel)]="personForm.age" type="number" min="0" max="120" />
         </label>
         <label>
-          Genero
+          Género
           <select [(ngModel)]="personForm.gender">
             @for (gender of genders; track gender.value) {
               <option [ngValue]="gender.value">{{ gender.label }}</option>
@@ -238,7 +238,7 @@
         Incluir definiciones inactivas
       </label>
 
-      <div class="actions">
+      <div class="actions compact-actions">
         <button type="button" class="secondary" (click)="loadDefinitions()" [disabled]="busy || !token">Actualizar definiciones</button>
       </div>
 
@@ -264,7 +264,7 @@
           Es filtrable
         </label>
         <div class="rule-editor span-two">
-          <p class="rule-title">Reglas de validacion</p>
+          <p class="rule-title">Reglas de validación</p>
           <label class="inline-checkbox">
             <input type="checkbox" [(ngModel)]="newDefinitionRules.required" />
             Requerido
@@ -273,7 +273,7 @@
           @if (newDefinition.dataType === 2) {
             <div class="grid two compact">
               <label>
-                Maximo de caracteres
+                Máximo de caracteres
                 <input [(ngModel)]="newDefinitionRules.maxLength" type="number" min="1" />
               </label>
               <label>
@@ -286,11 +286,11 @@
           @if (newDefinition.dataType === 3) {
             <div class="grid two compact">
               <label>
-                Minimo
+                Mínimo
                 <input [(ngModel)]="newDefinitionRules.min" type="number" step="any" />
               </label>
               <label>
-                Maximo
+                Máximo
                 <input [(ngModel)]="newDefinitionRules.max" type="number" step="any" />
               </label>
             </div>
@@ -299,11 +299,11 @@
           @if (newDefinition.dataType === 4) {
             <div class="grid two compact">
               <label>
-                Fecha minima
+                Fecha mínima
                 <input [(ngModel)]="newDefinitionRules.minDate" type="date" />
               </label>
               <label>
-                Fecha maxima
+                Fecha máxima
                 <input [(ngModel)]="newDefinitionRules.maxDate" type="date" />
               </label>
             </div>
@@ -311,8 +311,8 @@
 
           @if (newDefinition.dataType === 5) {
             <label>
-              Valores permitidos (separados por coma o salto de linea)
-              <textarea [(ngModel)]="newDefinitionRules.allowedValuesText" rows="2" placeholder="hipertension, diabetes, asma"></textarea>
+              Valores permitidos (separados por coma o salto de línea)
+              <textarea [(ngModel)]="newDefinitionRules.allowedValuesText" rows="2" placeholder="hipertensión, diabetes, asma"></textarea>
             </label>
           }
 
@@ -321,7 +321,7 @@
       </div>
 
       <div class="actions">
-        <button type="button" (click)="createDefinition()" [disabled]="busy || !token">Crear definicion</button>
+        <button type="button" (click)="createDefinition()" [disabled]="busy || !token">Crear definición</button>
       </div>
 
       <div class="definition-list">
@@ -345,7 +345,7 @@
                 Activa
               </label>
               <div class="rule-editor span-two">
-                <p class="rule-title">Reglas de validacion</p>
+                <p class="rule-title">Reglas de validación</p>
                 <label class="inline-checkbox">
                   <input
                     type="checkbox"
@@ -357,7 +357,7 @@
                 @if (def.dataType === 2) {
                   <div class="grid two compact">
                     <label>
-                      Maximo de caracteres
+                      Máximo de caracteres
                       <input
                         [(ngModel)]="definitionRulesDraft(def.id, def.dataType, def.validationRulesJson).maxLength"
                         type="number"
@@ -377,7 +377,7 @@
                 @if (def.dataType === 3) {
                   <div class="grid two compact">
                     <label>
-                      Minimo
+                      Mínimo
                       <input
                         [(ngModel)]="definitionRulesDraft(def.id, def.dataType, def.validationRulesJson).min"
                         type="number"
@@ -385,7 +385,7 @@
                       />
                     </label>
                     <label>
-                      Maximo
+                      Máximo
                       <input
                         [(ngModel)]="definitionRulesDraft(def.id, def.dataType, def.validationRulesJson).max"
                         type="number"
@@ -398,14 +398,14 @@
                 @if (def.dataType === 4) {
                   <div class="grid two compact">
                     <label>
-                      Fecha minima
+                      Fecha mínima
                       <input
                         [(ngModel)]="definitionRulesDraft(def.id, def.dataType, def.validationRulesJson).minDate"
                         type="date"
                       />
                     </label>
                     <label>
-                      Fecha maxima
+                      Fecha máxima
                       <input
                         [(ngModel)]="definitionRulesDraft(def.id, def.dataType, def.validationRulesJson).maxDate"
                         type="date"
@@ -416,11 +416,11 @@
 
                 @if (def.dataType === 5) {
                   <label>
-                    Valores permitidos (separados por coma o salto de linea)
+                    Valores permitidos (separados por coma o salto de línea)
                     <textarea
                       [(ngModel)]="definitionRulesDraft(def.id, def.dataType, def.validationRulesJson).allowedValuesText"
                       rows="2"
-                      placeholder="hipertension, diabetes, asma"
+                      placeholder="hipertensión, diabetes, asma"
                     ></textarea>
                   </label>
                 }
@@ -442,13 +442,13 @@
 
     <div class="grid two">
       <label class="span-two">
-        Texto de condicion
-        <input [(ngModel)]="conditionText" placeholder="ej. diabetico con hipertension cronica" />
+        Texto de condición
+        <input [(ngModel)]="conditionText" placeholder="ej. diabético con hipertensión crónica" />
       </label>
     </div>
 
     <div class="actions split">
-      <button type="button" class="secondary" (click)="normalizeCondition()" [disabled]="busy || !token">Normalizar condicion</button>
+      <button type="button" class="secondary" (click)="normalizeCondition()" [disabled]="busy || !token">Normalizar condición</button>
       <button type="button" class="secondary" (click)="applySuggestedAttributes()" [disabled]="busy || !token || !normalizedCondition || !selectedPerson">
         Aplicar atributos sugeridos
       </button>
@@ -457,13 +457,13 @@
 
     @if (normalizedCondition) {
       <div class="ai-card">
-        <h3>Condicion Normalizada</h3>
+        <h3>Condición Normalizada</h3>
         <p class="hint">
           <strong>{{ normalizedCondition.code }}</strong> · {{ normalizedCondition.label }} ·
           confianza {{ normalizedCondition.confidence | number: '1.0-3' }} · fuente {{ normalizedCondition.source }}
         </p>
 
-        <p class="hint">Terminos detectados: {{ normalizedCondition.matchedTerms.length ? normalizedCondition.matchedTerms.join(', ') : 'ninguno' }}</p>
+        <p class="hint">Términos detectados: {{ normalizedCondition.matchedTerms.length ? normalizedCondition.matchedTerms.join(', ') : 'ninguno' }}</p>
 
         @if (normalizedCondition.suggestedAttributes.length) {
           <div class="ai-list">

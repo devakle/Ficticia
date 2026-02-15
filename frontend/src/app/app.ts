@@ -1,107 +1,28 @@
-import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { DecimalPipe } from '@angular/common';
-import { ChangeDetectorRef, Component, HostBinding, inject, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, HostBinding, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { firstValueFrom } from 'rxjs';
-
-type Gender = 0 | 1 | 2 | 3;
-type AttributeDataType = 1 | 2 | 3 | 4 | 5;
-
-interface PersonDto {
-  id: string;
-  fullName: string;
-  identificationNumber: string;
-  age: number;
-  gender: Gender;
-  isActive: boolean;
-}
-
-interface PagedResult<T> {
-  items: T[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
-
-interface PagedResultRaw<T> {
-  items?: T[];
-  total?: number;
-  page?: number;
-  pageSize?: number;
-  Items?: T[];
-  Total?: number;
-  Page?: number;
-  PageSize?: number;
-}
-
-interface AttributeDefinitionDto {
-  id: string;
-  key: string;
-  displayName: string;
-  dataType: AttributeDataType;
-  isFilterable: boolean;
-  isActive: boolean;
-  validationRulesJson: string | null;
-}
-
-interface PersonAttributeFormItemDto {
-  key: string;
-  displayName: string;
-  dataType: AttributeDataType;
-  isFilterable: boolean;
-  isActive: boolean;
-  validationRulesJson: string | null;
-  boolValue: boolean | null;
-  stringValue: string | null;
-  numberValue: number | null;
-  dateValue: string | null;
-  updatedAt: string | null;
-}
-
-interface UpsertAttributeValueDto {
-  key: string;
-  boolValue: boolean | null;
-  stringValue: string | null;
-  numberValue: number | null;
-  dateValue: string | null;
-}
-
-interface NormalizeConditionResponseDto {
-  code: string;
-  label: string;
-  confidence: number;
-  matchedTerms: string[];
-  suggestedAttributes: UpsertAttributeValueDto[];
-  source: string;
-}
-
-interface RiskScoreResponseDto {
-  score: number;
-  band: string | number;
-  reasons: string[] | null | undefined;
-}
-
-interface ToastMessage {
-  id: number;
-  type: 'success' | 'error';
-  text: string;
-}
-
-interface DynamicFilterInput {
-  key: string;
-  value: string | number | null;
-}
-
-interface ValidationRulesDraft {
-  required: boolean;
-  maxLength: number | null;
-  regex: string;
-  min: number | null;
-  max: number | null;
-  minDate: string;
-  maxDate: string;
-  allowedValuesText: string;
-}
+import {
+  AttributeDataType,
+  AttributeDefinitionDto,
+  DynamicFilterInput,
+  Gender,
+  NormalizeConditionResponseDto,
+  PersonAttributeFormItemDto,
+  PersonDto,
+  RiskScoreResponseDto,
+  UpsertAttributeValueDto,
+  ValidationRulesDraft
+} from './core/models/domain.models';
+import { AuthApiService } from './core/services/auth-api.service';
+import { ErrorMessageService } from './core/services/error-message.service';
+import { ThemeService } from './core/services/theme.service';
+import { ToastService } from './core/services/toast.service';
+import { AiApiService } from './features/ai/services/ai-api.service';
+import { RiskBandService } from './features/ai/services/risk-band.service';
+import { AttributesApiService } from './features/attributes/services/attributes-api.service';
+import { ValidationRulesService } from './features/attributes/services/validation-rules.service';
+import { PeopleApiService } from './features/people/services/people-api.service';
+import { PeoplePaginationService } from './features/people/services/people-pagination.service';
 
 @Component({
   selector: 'app-root',
@@ -110,9 +31,17 @@ interface ValidationRulesDraft {
   styleUrl: './app.css'
 })
 export class App {
-  private readonly http = inject(HttpClient);
   private readonly cdr = inject(ChangeDetectorRef);
-  private readonly themeStorageKey = 'admin_theme_mode';
+  private readonly authApi = inject(AuthApiService);
+  private readonly peopleApi = inject(PeopleApiService);
+  private readonly attributesApi = inject(AttributesApiService);
+  private readonly aiApi = inject(AiApiService);
+  private readonly riskBand = inject(RiskBandService);
+  private readonly validationRules = inject(ValidationRulesService);
+  private readonly toast = inject(ToastService);
+  private readonly errorMessage = inject(ErrorMessageService);
+  private readonly theme = inject(ThemeService);
+  private readonly pagination = inject(PeoplePaginationService);
 
   readonly genders = [
     { value: 0, label: 'Desconocido' },
@@ -124,7 +53,7 @@ export class App {
   readonly attributeTypes = [
     { value: 1, label: 'Booleano' },
     { value: 2, label: 'Texto' },
-    { value: 3, label: 'Numero' },
+    { value: 3, label: 'Número' },
     { value: 4, label: 'Fecha' },
     { value: 5, label: 'Enumerado' }
   ];
@@ -133,10 +62,10 @@ export class App {
   email = 'admin@ficticia.local';
   password = 'Admin123!';
   token = localStorage.getItem('admin_token') ?? '';
-  themeMode: 'light' | 'dark' = this.getInitialTheme();
+  themeMode: 'light' | 'dark' = this.theme.getInitialTheme();
 
   busy = false;
-  notifications = signal<ToastMessage[]>([]);
+  notifications = this.toast.notifications;
 
   includeInactiveDefinitions = false;
 
@@ -169,7 +98,7 @@ export class App {
     dataType: 1 as AttributeDataType,
     isFilterable: true
   };
-  newDefinitionRules: ValidationRulesDraft = this.emptyRulesDraft();
+  newDefinitionRules: ValidationRulesDraft = this.validationRules.emptyDraft();
   definitionRulesDrafts: Record<string, ValidationRulesDraft> = {};
 
   personAttributes: PersonAttributeFormItemDto[] = [];
@@ -184,13 +113,9 @@ export class App {
 
   async login(): Promise<void> {
     await this.run(async () => {
-      const url = `${this.apiBaseUrl}/api/v1/auth/login`;
-      const body = { email: this.email, password: this.password };
-      const res = await firstValueFrom(this.http.post<{ access_token: string }>(url, body));
-
-      this.token = res.access_token;
+      this.token = await this.authApi.login(this.apiBaseUrl, this.email, this.password);
       localStorage.setItem('admin_token', this.token);
-      this.notifySuccess('Autenticacion exitosa.');
+      this.notifySuccess('Autenticación exitosa.');
 
       await Promise.all([this.searchPeople(), this.loadDefinitions()]);
     });
@@ -212,38 +137,7 @@ export class App {
     await this.run(async () => {
       this.peopleSearch.page = this.normalizePeoplePage(this.peopleSearch.page);
       this.peopleSearch.pageSize = this.normalizePeoplePageSize(this.peopleSearch.pageSize);
-
-      let params = new HttpParams()
-        .set('page', String(this.peopleSearch.page))
-        .set('pageSize', String(this.peopleSearch.pageSize));
-
-      if (this.peopleSearch.name.trim()) {
-        params = params.set('name', this.peopleSearch.name.trim());
-      }
-      if (this.peopleSearch.identificationNumber.trim()) {
-        params = params.set('identificationNumber', this.peopleSearch.identificationNumber.trim());
-      }
-      if (this.peopleSearch.isActive) {
-        params = params.set('isActive', this.peopleSearch.isActive);
-      }
-      if (this.peopleSearch.minAge !== null) {
-        params = params.set('minAge', String(this.peopleSearch.minAge));
-      }
-      if (this.peopleSearch.maxAge !== null) {
-        params = params.set('maxAge', String(this.peopleSearch.maxAge));
-      }
-
-      for (const filter of this.peopleSearch.dynamicFilters) {
-        const key = filter.key.trim();
-        const value = String(filter.value ?? '').trim();
-        if (key && value) {
-          params = params.set(`attr.${key}`, value);
-        }
-      }
-
-      const url = `${this.apiBaseUrl}/api/v1/people`;
-      const raw = await firstValueFrom(this.http.get<PagedResultRaw<PersonDto>>(url, { headers: this.authHeaders, params }));
-      const res = this.normalizePagedResult(raw);
+      const res = await this.peopleApi.search(this.apiBaseUrl, this.token, this.peopleSearch);
 
       this.people = res.items;
       this.totalPeople = res.total;
@@ -260,8 +154,7 @@ export class App {
 
   async createPerson(): Promise<void> {
     await this.run(async () => {
-      const url = `${this.apiBaseUrl}/api/v1/people`;
-      const created = await firstValueFrom(this.http.post<PersonDto>(url, this.personForm, { headers: this.authHeaders }));
+      const created = await this.peopleApi.create(this.apiBaseUrl, this.token, this.personForm);
 
       this.notifySuccess(`Persona creada: ${created.fullName}.`);
       this.selectPerson(created);
@@ -276,9 +169,12 @@ export class App {
     }
 
     await this.run(async () => {
-      const payload = { id: this.selectedPerson!.id, ...this.personForm };
-      const url = `${this.apiBaseUrl}/api/v1/people/${this.selectedPerson!.id}`;
-      await firstValueFrom(this.http.put<void>(url, payload, { headers: this.authHeaders }));
+      const payload = {
+        id: this.selectedPerson!.id,
+        isActive: this.selectedPerson!.isActive,
+        ...this.personForm
+      };
+      await this.peopleApi.update(this.apiBaseUrl, this.token, payload);
 
       this.notifySuccess('Persona actualizada.');
       await this.searchPeople();
@@ -292,8 +188,7 @@ export class App {
     }
 
     await this.run(async () => {
-      const url = `${this.apiBaseUrl}/api/v1/people/${this.selectedPerson!.id}/status`;
-      await firstValueFrom(this.http.patch<void>(url, { id: this.selectedPerson!.id, isActive: nextIsActive }, { headers: this.authHeaders }));
+      await this.peopleApi.setStatus(this.apiBaseUrl, this.token, this.selectedPerson!.id, nextIsActive);
 
       this.notifySuccess(`Persona marcada como ${nextIsActive ? 'activa' : 'inactiva'}.`);
       await this.searchPeople();
@@ -327,11 +222,7 @@ export class App {
 
   async loadDefinitions(): Promise<void> {
     await this.run(async () => {
-      const url = `${this.apiBaseUrl}/api/v1/attributes/definitions`;
-      const params = new HttpParams().set('onlyActive', String(!this.includeInactiveDefinitions));
-      this.definitions = await firstValueFrom(
-        this.http.get<AttributeDefinitionDto[]>(url, { headers: this.authHeaders, params })
-      );
+      this.definitions = await this.attributesApi.getDefinitions(this.apiBaseUrl, this.token, !this.includeInactiveDefinitions);
       this.hydrateDefinitionRuleDrafts();
       this.syncDynamicFiltersWithDefinitions();
       this.notifySuccess(`Se cargaron ${this.definitions.length} definiciones de atributos.`);
@@ -340,16 +231,15 @@ export class App {
 
   async createDefinition(): Promise<void> {
     await this.run(async () => {
-      const url = `${this.apiBaseUrl}/api/v1/attributes/definitions`;
       const payload = {
         key: this.newDefinition.key.trim(),
         displayName: this.newDefinition.displayName.trim(),
         dataType: this.newDefinition.dataType,
         isFilterable: this.newDefinition.isFilterable,
-        validationRulesJson: this.buildValidationRulesJson(this.newDefinition.dataType, this.newDefinitionRules)
+        validationRulesJson: this.validationRules.buildJson(this.newDefinition.dataType, this.newDefinitionRules)
       };
 
-      await firstValueFrom(this.http.post<AttributeDefinitionDto>(url, payload, { headers: this.authHeaders }));
+      await this.attributesApi.createDefinition(this.apiBaseUrl, this.token, payload);
 
       this.newDefinition = {
         key: '',
@@ -357,30 +247,29 @@ export class App {
         dataType: 1,
         isFilterable: true
       };
-      this.newDefinitionRules = this.emptyRulesDraft();
+      this.newDefinitionRules = this.validationRules.emptyDraft();
 
-      this.notifySuccess('Definicion de atributo creada.');
+      this.notifySuccess('Definición de atributo creada.');
       await this.loadDefinitions();
     });
   }
 
   async updateDefinition(definition: AttributeDefinitionDto): Promise<void> {
     await this.run(async () => {
-      const url = `${this.apiBaseUrl}/api/v1/attributes/definitions/${definition.id}`;
       const payload = {
         id: definition.id,
         displayName: definition.displayName.trim(),
         isFilterable: definition.isFilterable,
         isActive: definition.isActive,
-        validationRulesJson: this.buildValidationRulesJson(
+        validationRulesJson: this.validationRules.buildJson(
           definition.dataType,
           this.definitionRulesDraft(definition.id, definition.dataType, definition.validationRulesJson)
         )
       };
 
-      await firstValueFrom(this.http.put<void>(url, payload, { headers: this.authHeaders }));
+      await this.attributesApi.updateDefinition(this.apiBaseUrl, this.token, definition.id, payload);
       definition.validationRulesJson = payload.validationRulesJson;
-      this.notifySuccess(`Definicion guardada: ${definition.key}.`);
+      this.notifySuccess(`Definición guardada: ${definition.key}.`);
 
       if (this.selectedPerson) {
         await this.loadPersonAttributeForm();
@@ -394,12 +283,7 @@ export class App {
     }
 
     await this.run(async () => {
-      const url = `${this.apiBaseUrl}/api/v1/people/${this.selectedPerson!.id}/attributes/form`;
-      const params = new HttpParams().set('onlyActive', 'true');
-
-      this.personAttributes = await firstValueFrom(
-        this.http.get<PersonAttributeFormItemDto[]>(url, { headers: this.authHeaders, params })
-      );
+      this.personAttributes = await this.peopleApi.getAttributeForm(this.apiBaseUrl, this.token, this.selectedPerson!.id, true);
 
       this.notifySuccess(`Se cargaron ${this.personAttributes.length} atributos para la persona seleccionada.`);
     });
@@ -434,8 +318,7 @@ export class App {
         return out;
       });
 
-      const url = `${this.apiBaseUrl}/api/v1/people/${this.selectedPerson!.id}/attributes`;
-      await firstValueFrom(this.http.put<void>(url, payload, { headers: this.authHeaders }));
+      await this.peopleApi.saveAttributes(this.apiBaseUrl, this.token, this.selectedPerson!.id, payload);
 
       this.notifySuccess('Atributos de la persona guardados.');
       await this.loadPersonAttributeForm();
@@ -445,16 +328,13 @@ export class App {
   async normalizeCondition(): Promise<void> {
     const text = this.conditionText.trim();
     if (!text) {
-      this.notifyError('Ingresa un texto de condicion para normalizar.');
+      this.notifyError('Ingresa un texto de condición para normalizar.');
       return;
     }
 
     await this.run(async () => {
-      const url = `${this.apiBaseUrl}/api/v1/ai/conditions/normalize`;
-      this.normalizedCondition = await firstValueFrom(
-        this.http.post<NormalizeConditionResponseDto>(url, { text }, { headers: this.authHeaders })
-      );
-      this.notifySuccess(`Condicion normalizada como ${this.normalizedCondition.code}.`);
+      this.normalizedCondition = await this.aiApi.normalizeCondition(this.apiBaseUrl, this.token, text);
+      this.notifySuccess(`Condición normalizada como ${this.normalizedCondition.code}.`);
     });
   }
 
@@ -465,10 +345,7 @@ export class App {
     }
 
     await this.run(async () => {
-      const url = `${this.apiBaseUrl}/api/v1/ai/people/${this.selectedPerson!.id}/risk-score`;
-      const response = await firstValueFrom(
-        this.http.post<RiskScoreResponseDto>(url, {}, { headers: this.authHeaders })
-      );
+      const response = await this.aiApi.scorePersonRisk(this.apiBaseUrl, this.token, this.selectedPerson!.id);
       this.riskScore = {
         score: response.score,
         band: response.band,
@@ -480,7 +357,7 @@ export class App {
 
   applySuggestedAttributes(): void {
     if (!this.normalizedCondition) {
-      this.notifyError('No hay resultado de condicion normalizada para aplicar.');
+      this.notifyError('No hay resultado de condición normalizada para aplicar.');
       return;
     }
 
@@ -524,7 +401,7 @@ export class App {
   }
 
   get totalPeoplePages(): number {
-    return Math.max(1, Math.ceil(this.totalPeople / this.peopleSearch.pageSize));
+    return this.pagination.totalPages(this.totalPeople, this.peopleSearch.pageSize);
   }
 
   get canGoToPreviousPeoplePage(): boolean {
@@ -536,19 +413,11 @@ export class App {
   }
 
   get peopleFrom(): number {
-    if (this.totalPeople === 0 || this.people.length === 0) {
-      return 0;
-    }
-
-    return (this.peopleSearch.page - 1) * this.peopleSearch.pageSize + 1;
+    return this.pagination.visibleRange(this.totalPeople, this.peopleSearch.page, this.peopleSearch.pageSize, this.people.length).from;
   }
 
   get peopleTo(): number {
-    if (this.totalPeople === 0 || this.people.length === 0) {
-      return 0;
-    }
-
-    return Math.min(this.totalPeople, this.peopleFrom + this.people.length - 1);
+    return this.pagination.visibleRange(this.totalPeople, this.peopleSearch.page, this.peopleSearch.pageSize, this.people.length).to;
   }
 
   goToPreviousPeoplePage(): void {
@@ -622,21 +491,7 @@ export class App {
     if (!def || def.dataType !== 5 || !def.validationRulesJson) {
       return [];
     }
-
-    try {
-      const parsed = JSON.parse(def.validationRulesJson) as { allowedValues?: unknown; AllowedValues?: unknown };
-      const rawAllowed = parsed.allowedValues ?? parsed.AllowedValues;
-      if (!Array.isArray(rawAllowed)) {
-        return [];
-      }
-
-      return rawAllowed
-        .filter((x): x is string => typeof x === 'string')
-        .map(x => x.trim())
-        .filter(x => x.length > 0);
-    } catch {
-      return [];
-    }
+    return this.validationRules.allowedValues(def.validationRulesJson);
   }
 
   dynamicFilterValuePlaceholder(filter: DynamicFilterInput): string {
@@ -645,7 +500,7 @@ export class App {
       return 'Si o No';
     }
     if (dataType === 3) {
-      return 'numero';
+      return 'número';
     }
     if (dataType === 4) {
       return 'fecha';
@@ -654,12 +509,12 @@ export class App {
   }
 
   definitionRulesForNewPreview(): string {
-    return this.validationRulesPreview(this.newDefinition.dataType, this.newDefinitionRules);
+    return this.validationRules.preview(this.newDefinition.dataType, this.newDefinitionRules);
   }
 
   definitionRulesForPreview(definition: AttributeDefinitionDto): string {
     const draft = this.definitionRulesDraft(definition.id, definition.dataType, definition.validationRulesJson);
-    return this.validationRulesPreview(definition.dataType, draft);
+    return this.validationRules.preview(definition.dataType, draft);
   }
 
   definitionRulesDraft(
@@ -668,7 +523,7 @@ export class App {
     rawJson: string | null
   ): ValidationRulesDraft {
     if (!this.definitionRulesDrafts[definitionId]) {
-      this.definitionRulesDrafts[definitionId] = this.parseRulesDraft(dataType, rawJson);
+      this.definitionRulesDrafts[definitionId] = this.validationRules.parseDraft(dataType, rawJson);
     }
 
     return this.definitionRulesDrafts[definitionId];
@@ -679,37 +534,21 @@ export class App {
   }
 
   isRiskBand(band: string | number, expected: 'low' | 'medium' | 'high'): boolean {
-    return this.normalizeRiskBand(band) === expected;
+    return this.riskBand.isBand(band, expected);
   }
 
   riskBandLabel(band: string | number): string {
-    const normalized = this.normalizeRiskBand(band);
-    if (normalized === 'low') {
-      return 'Riesgo bajo';
-    }
-    if (normalized === 'medium') {
-      return 'Riesgo medio';
-    }
-    if (normalized === 'high') {
-      return 'Riesgo alto';
-    }
-
-    return `Banda ${String(band)}`;
+    return this.riskBand.label(band);
   }
 
   toggleTheme(): void {
-    this.themeMode = this.themeMode === 'dark' ? 'light' : 'dark';
-    localStorage.setItem(this.themeStorageKey, this.themeMode);
+    this.themeMode = this.theme.toggle(this.themeMode);
     this.cdr.detectChanges();
   }
 
   dismissNotification(id: number): void {
-    this.notifications.update(items => items.filter(n => n.id !== id));
+    this.toast.dismiss(id);
     this.cdr.detectChanges();
-  }
-
-  private get authHeaders(): HttpHeaders {
-    return new HttpHeaders({ Authorization: `Bearer ${this.token}` });
   }
 
   private async run(work: () => Promise<void>): Promise<void> {
@@ -719,7 +558,7 @@ export class App {
     try {
       await work();
     } catch (err: unknown) {
-      this.notifyError(this.toErrorMessage(err));
+      this.notifyError(this.errorMessage.toMessage(err));
     } finally {
       this.busy = false;
       this.cdr.detectChanges();
@@ -732,33 +571,15 @@ export class App {
   }
 
   private normalizePeoplePage(page: number): number {
-    if (!Number.isFinite(page)) {
-      return 1;
-    }
-
-    return Math.max(1, Math.trunc(page));
+    return this.pagination.normalizePage(page);
   }
 
   private normalizePeoplePageSize(pageSize: number): number {
-    if (!Number.isFinite(pageSize)) {
-      return 20;
-    }
-
-    return Math.min(100, Math.max(1, Math.trunc(pageSize)));
+    return this.pagination.normalizePageSize(pageSize);
   }
 
   private clampPeoplePage(page: number): number {
-    const normalized = this.normalizePeoplePage(page);
-    return Math.min(this.totalPeoplePages, normalized);
-  }
-
-  private normalizePagedResult<T>(raw: PagedResultRaw<T>): PagedResult<T> {
-    return {
-      items: raw.items ?? raw.Items ?? [],
-      total: raw.total ?? raw.Total ?? 0,
-      page: raw.page ?? raw.Page ?? 1,
-      pageSize: raw.pageSize ?? raw.PageSize ?? 20
-    };
+    return this.pagination.clampPage(page, this.totalPeople, this.peopleSearch.pageSize);
   }
 
   private syncDynamicFiltersWithDefinitions(): void {
@@ -781,7 +602,7 @@ export class App {
     const next: Record<string, ValidationRulesDraft> = {};
 
     for (const def of this.definitions) {
-      next[def.id] = this.definitionRulesDrafts[def.id] ?? this.parseRulesDraft(def.dataType, def.validationRulesJson);
+      next[def.id] = this.definitionRulesDrafts[def.id] ?? this.validationRules.parseDraft(def.dataType, def.validationRulesJson);
     }
 
     this.definitionRulesDrafts = next;
@@ -795,211 +616,13 @@ export class App {
     return this.filterableDefinitions.find(def => def.key === filter.key) ?? null;
   }
 
-  private emptyRulesDraft(): ValidationRulesDraft {
-    return {
-      required: false,
-      maxLength: null,
-      regex: '',
-      min: null,
-      max: null,
-      minDate: '',
-      maxDate: '',
-      allowedValuesText: ''
-    };
-  }
-
-  private parseRulesDraft(dataType: AttributeDataType, rawJson: string | null): ValidationRulesDraft {
-    const draft = this.emptyRulesDraft();
-    const parsed = this.tryParseRules(rawJson);
-    if (!parsed) {
-      return draft;
-    }
-
-    const required = parsed['required'] ?? parsed['Required'];
-    draft.required = typeof required === 'boolean' ? required : false;
-
-    if (dataType === 2) {
-      const maxLength = parsed['maxLength'] ?? parsed['MaxLength'];
-      draft.maxLength = typeof maxLength === 'number' ? maxLength : null;
-      const regex = parsed['regex'] ?? parsed['Regex'];
-      draft.regex = typeof regex === 'string' ? regex : '';
-    }
-
-    if (dataType === 3) {
-      const min = parsed['min'] ?? parsed['Min'];
-      const max = parsed['max'] ?? parsed['Max'];
-      draft.min = typeof min === 'number' ? min : null;
-      draft.max = typeof max === 'number' ? max : null;
-    }
-
-    if (dataType === 4) {
-      const minDate = parsed['minDate'] ?? parsed['MinDate'];
-      const maxDate = parsed['maxDate'] ?? parsed['MaxDate'];
-      draft.minDate = this.normalizeDateInput(minDate);
-      draft.maxDate = this.normalizeDateInput(maxDate);
-    }
-
-    if (dataType === 5) {
-      const allowed = parsed['allowedValues'] ?? parsed['AllowedValues'];
-      if (Array.isArray(allowed)) {
-        draft.allowedValuesText = allowed
-          .filter((x): x is string => typeof x === 'string')
-          .map(x => x.trim())
-          .filter(x => x.length > 0)
-          .join(', ');
-      }
-    }
-
-    return draft;
-  }
-
-  private buildValidationRulesJson(dataType: AttributeDataType, draft: ValidationRulesDraft): string | null {
-    const rules: Record<string, unknown> = {};
-
-    if (draft.required) {
-      rules['required'] = true;
-    }
-
-    if (dataType === 2) {
-      if (draft.maxLength !== null && Number.isFinite(draft.maxLength)) {
-        rules['maxLength'] = draft.maxLength;
-      }
-      const regex = draft.regex.trim();
-      if (regex) {
-        rules['regex'] = regex;
-      }
-    }
-
-    if (dataType === 3) {
-      if (draft.min !== null && Number.isFinite(draft.min)) {
-        rules['min'] = draft.min;
-      }
-      if (draft.max !== null && Number.isFinite(draft.max)) {
-        rules['max'] = draft.max;
-      }
-    }
-
-    if (dataType === 4) {
-      const minDate = draft.minDate.trim();
-      const maxDate = draft.maxDate.trim();
-      if (minDate) {
-        rules['minDate'] = minDate;
-      }
-      if (maxDate) {
-        rules['maxDate'] = maxDate;
-      }
-    }
-
-    if (dataType === 5) {
-      const allowedValues = this.parseAllowedValues(draft.allowedValuesText);
-      if (allowedValues.length) {
-        rules['allowedValues'] = allowedValues;
-      }
-    }
-
-    return Object.keys(rules).length ? JSON.stringify(rules) : null;
-  }
-
-  private validationRulesPreview(dataType: AttributeDataType, draft: ValidationRulesDraft): string {
-    const json = this.buildValidationRulesJson(dataType, draft);
-    return json ?? '(sin reglas)';
-  }
-
-  private parseAllowedValues(source: string): string[] {
-    return source
-      .split(/[\n,;]+/)
-      .map(x => x.trim())
-      .filter(x => x.length > 0);
-  }
-
-  private normalizeDateInput(value: unknown): string {
-    if (typeof value !== 'string' || !value.trim()) {
-      return '';
-    }
-
-    const raw = value.trim();
-    return raw.length >= 10 ? raw.slice(0, 10) : raw;
-  }
-
-  private tryParseRules(rawJson: string | null): Record<string, unknown> | null {
-    if (!rawJson || !rawJson.trim()) {
-      return null;
-    }
-
-    try {
-      const parsed = JSON.parse(rawJson);
-      return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  private normalizeRiskBand(band: string | number): 'low' | 'medium' | 'high' | 'unknown' {
-    if (band === 1 || band === '1') {
-      return 'low';
-    }
-    if (band === 2 || band === '2') {
-      return 'medium';
-    }
-    if (band === 3 || band === '3') {
-      return 'high';
-    }
-
-    const normalized = String(band).trim().toLowerCase();
-    if (normalized === 'low') {
-      return 'low';
-    }
-    if (normalized === 'medium') {
-      return 'medium';
-    }
-    if (normalized === 'high') {
-      return 'high';
-    }
-
-    return 'unknown';
-  }
-
-  private getInitialTheme(): 'light' | 'dark' {
-    const stored = localStorage.getItem(this.themeStorageKey);
-    if (stored === 'dark' || stored === 'light') {
-      return stored;
-    }
-
-    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
-
   private notifySuccess(text: string): void {
-    this.pushNotification('success', text);
+    this.toast.success(text);
+    this.cdr.detectChanges();
   }
 
   private notifyError(text: string): void {
-    this.pushNotification('error', text);
-  }
-
-  private pushNotification(type: 'success' | 'error', text: string): void {
-    const id = Date.now() + Math.floor(Math.random() * 1000);
-    this.notifications.update(items => [...items, { id, type, text }]);
+    this.toast.error(text);
     this.cdr.detectChanges();
-
-    setTimeout(() => {
-      this.dismissNotification(id);
-    }, 3500);
-  }
-
-  private toErrorMessage(err: unknown): string {
-    const status = (err as { status?: number }).status;
-    const body = (err as { error?: unknown }).error;
-
-    if (typeof body === 'string') {
-      return status ? `Solicitud fallida (${status}): ${body}` : body;
-    }
-
-    if (body && typeof body === 'object') {
-      const asRecord = body as Record<string, unknown>;
-      const detail = asRecord['message'] ?? asRecord['title'] ?? JSON.stringify(body);
-      return status ? `Solicitud fallida (${status}): ${detail}` : String(detail);
-    }
-
-    return status ? `Solicitud fallida (${status}).` : 'Error inesperado.';
   }
 }
