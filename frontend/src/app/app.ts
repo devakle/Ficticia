@@ -99,18 +99,18 @@ export class App {
   private readonly themeStorageKey = 'admin_theme_mode';
 
   readonly genders = [
-    { value: 0, label: 'Unknown' },
-    { value: 1, label: 'Male' },
-    { value: 2, label: 'Female' },
-    { value: 3, label: 'Other' }
+    { value: 0, label: 'Desconocido' },
+    { value: 1, label: 'Masculino' },
+    { value: 2, label: 'Femenino' },
+    { value: 3, label: 'Otro' }
   ];
 
   readonly attributeTypes = [
-    { value: 1, label: 'Boolean' },
-    { value: 2, label: 'String' },
-    { value: 3, label: 'Number' },
-    { value: 4, label: 'Date' },
-    { value: 5, label: 'Enum' }
+    { value: 1, label: 'Booleano' },
+    { value: 2, label: 'Texto' },
+    { value: 3, label: 'Numero' },
+    { value: 4, label: 'Fecha' },
+    { value: 5, label: 'Enumerado' }
   ];
 
   apiBaseUrl = '';
@@ -173,7 +173,7 @@ export class App {
 
       this.token = res.access_token;
       localStorage.setItem('admin_token', this.token);
-      this.notifySuccess('Authenticated successfully.');
+      this.notifySuccess('Autenticacion exitosa.');
 
       await Promise.all([this.searchPeople(), this.loadDefinitions()]);
     });
@@ -182,7 +182,7 @@ export class App {
   logout(): void {
     this.token = '';
     localStorage.removeItem('admin_token');
-    this.notifySuccess('Token cleared.');
+    this.notifySuccess('Token limpiado.');
   }
 
   async searchPeople(): Promise<void> {
@@ -221,7 +221,7 @@ export class App {
 
       this.people = res.items;
       this.totalPeople = res.total;
-      this.notifySuccess(`Loaded ${res.items.length} people.`);
+      this.notifySuccess(`Se cargaron ${res.items.length} personas.`);
 
       if (this.selectedPerson) {
         const updated = this.people.find(p => p.id === this.selectedPerson?.id) ?? null;
@@ -235,7 +235,7 @@ export class App {
       const url = `${this.apiBaseUrl}/api/v1/people`;
       const created = await firstValueFrom(this.http.post<PersonDto>(url, this.personForm, { headers: this.authHeaders }));
 
-      this.notifySuccess(`Created person ${created.fullName}.`);
+      this.notifySuccess(`Persona creada: ${created.fullName}.`);
       this.selectPerson(created);
       await this.searchPeople();
     });
@@ -243,7 +243,7 @@ export class App {
 
   async updatePerson(): Promise<void> {
     if (!this.selectedPerson) {
-      this.notifyError('Select a person to update.');
+      this.notifyError('Selecciona una persona para actualizar.');
       return;
     }
 
@@ -252,14 +252,14 @@ export class App {
       const url = `${this.apiBaseUrl}/api/v1/people/${this.selectedPerson!.id}`;
       await firstValueFrom(this.http.put<void>(url, payload, { headers: this.authHeaders }));
 
-      this.notifySuccess('Person updated.');
+      this.notifySuccess('Persona actualizada.');
       await this.searchPeople();
     });
   }
 
   async toggleStatus(nextIsActive: boolean): Promise<void> {
     if (!this.selectedPerson) {
-      this.notifyError('Select a person to change status.');
+      this.notifyError('Selecciona una persona para cambiar su estado.');
       return;
     }
 
@@ -267,7 +267,7 @@ export class App {
       const url = `${this.apiBaseUrl}/api/v1/people/${this.selectedPerson!.id}/status`;
       await firstValueFrom(this.http.patch<void>(url, { id: this.selectedPerson!.id, isActive: nextIsActive }, { headers: this.authHeaders }));
 
-      this.notifySuccess(`Person marked as ${nextIsActive ? 'active' : 'inactive'}.`);
+      this.notifySuccess(`Persona marcada como ${nextIsActive ? 'activa' : 'inactiva'}.`);
       await this.searchPeople();
     });
   }
@@ -304,7 +304,7 @@ export class App {
       this.definitions = await firstValueFrom(
         this.http.get<AttributeDefinitionDto[]>(url, { headers: this.authHeaders, params })
       );
-      this.notifySuccess(`Loaded ${this.definitions.length} attribute definitions.`);
+      this.notifySuccess(`Se cargaron ${this.definitions.length} definiciones de atributos.`);
     });
   }
 
@@ -329,7 +329,7 @@ export class App {
         validationRulesJson: ''
       };
 
-      this.notifySuccess('Attribute definition created.');
+      this.notifySuccess('Definicion de atributo creada.');
       await this.loadDefinitions();
     });
   }
@@ -346,7 +346,7 @@ export class App {
       };
 
       await firstValueFrom(this.http.put<void>(url, payload, { headers: this.authHeaders }));
-      this.notifySuccess(`Saved definition ${definition.key}.`);
+      this.notifySuccess(`Definicion guardada: ${definition.key}.`);
 
       if (this.selectedPerson) {
         await this.loadPersonAttributeForm();
@@ -367,13 +367,13 @@ export class App {
         this.http.get<PersonAttributeFormItemDto[]>(url, { headers: this.authHeaders, params })
       );
 
-      this.notifySuccess(`Loaded ${this.personAttributes.length} attributes for selected person.`);
+      this.notifySuccess(`Se cargaron ${this.personAttributes.length} atributos para la persona seleccionada.`);
     });
   }
 
   async savePersonAttributes(): Promise<void> {
     if (!this.selectedPerson) {
-      this.notifyError('Select a person first.');
+      this.notifyError('Selecciona una persona primero.');
       return;
     }
 
@@ -403,7 +403,7 @@ export class App {
       const url = `${this.apiBaseUrl}/api/v1/people/${this.selectedPerson!.id}/attributes`;
       await firstValueFrom(this.http.put<void>(url, payload, { headers: this.authHeaders }));
 
-      this.notifySuccess('Person attributes saved.');
+      this.notifySuccess('Atributos de la persona guardados.');
       await this.loadPersonAttributeForm();
     });
   }
@@ -411,7 +411,7 @@ export class App {
   async normalizeCondition(): Promise<void> {
     const text = this.conditionText.trim();
     if (!text) {
-      this.notifyError('Enter a condition text to normalize.');
+      this.notifyError('Ingresa un texto de condicion para normalizar.');
       return;
     }
 
@@ -420,13 +420,13 @@ export class App {
       this.normalizedCondition = await firstValueFrom(
         this.http.post<NormalizeConditionResponseDto>(url, { text }, { headers: this.authHeaders })
       );
-      this.notifySuccess(`Condition normalized as ${this.normalizedCondition.code}.`);
+      this.notifySuccess(`Condicion normalizada como ${this.normalizedCondition.code}.`);
     });
   }
 
   async scoreSelectedPersonRisk(): Promise<void> {
     if (!this.selectedPerson) {
-      this.notifyError('Select a person to score risk.');
+      this.notifyError('Selecciona una persona para calcular el riesgo.');
       return;
     }
 
@@ -440,29 +440,29 @@ export class App {
         band: response.band,
         reasons: Array.isArray(response.reasons) ? response.reasons : []
       };
-      this.notifySuccess(`Risk score calculated: ${this.riskScore.score} (${this.riskBandLabel(this.riskScore.band)}).`);
+      this.notifySuccess(`Puntaje de riesgo calculado: ${this.riskScore.score} (${this.riskBandLabel(this.riskScore.band)}).`);
     });
   }
 
   applySuggestedAttributes(): void {
     if (!this.normalizedCondition) {
-      this.notifyError('No normalized condition result to apply.');
+      this.notifyError('No hay resultado de condicion normalizada para aplicar.');
       return;
     }
 
     if (!this.selectedPerson) {
-      this.notifyError('Select a person before applying suggested attributes.');
+      this.notifyError('Selecciona una persona antes de aplicar atributos sugeridos.');
       return;
     }
 
     if (this.personAttributes.length === 0) {
-      this.notifyError('Load person attributes before applying suggestions.');
+      this.notifyError('Carga los atributos de la persona antes de aplicar sugerencias.');
       return;
     }
 
     const suggestions = this.normalizedCondition.suggestedAttributes;
     let applied = 0;
-    console.log('Applying suggested attributes:', suggestions);
+    console.log('Aplicando atributos sugeridos:', suggestions);
     for (const suggestion of suggestions) {
       const target = this.personAttributes.find(attr => attr.key === suggestion.key);
       if (!target) {
@@ -477,11 +477,11 @@ export class App {
     }
 
     if (applied === 0) {
-      this.notifyError('No matching attribute keys found to apply suggestions.');
+      this.notifyError('No se encontraron claves de atributos coincidentes para aplicar sugerencias.');
       return;
     }
 
-    this.notifySuccess(`Applied ${applied} suggested attribute value(s). Save attributes to persist.`);
+    this.notifySuccess(`Se aplicaron ${applied} valor(es) de atributos sugeridos. Guarda los atributos para persistir.`);
     this.cdr.detectChanges();
   }
 
@@ -619,15 +619,15 @@ export class App {
     const body = (err as { error?: unknown }).error;
 
     if (typeof body === 'string') {
-      return status ? `Request failed (${status}): ${body}` : body;
+      return status ? `Solicitud fallida (${status}): ${body}` : body;
     }
 
     if (body && typeof body === 'object') {
       const asRecord = body as Record<string, unknown>;
       const detail = asRecord['message'] ?? asRecord['title'] ?? JSON.stringify(body);
-      return status ? `Request failed (${status}): ${detail}` : String(detail);
+      return status ? `Solicitud fallida (${status}): ${detail}` : String(detail);
     }
 
-    return status ? `Request failed (${status}).` : 'Unexpected error.';
+    return status ? `Solicitud fallida (${status}).` : 'Error inesperado.';
   }
 }

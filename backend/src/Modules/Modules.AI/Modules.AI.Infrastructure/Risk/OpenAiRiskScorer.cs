@@ -42,7 +42,9 @@ public sealed class OpenAiRiskScorer : IRiskScorer
         var resultJson = await _client.CreateJsonAsync(
             model: _opt.Model,
             system: "You are an insurance risk assistant. Score risk from provided structured features. " +
-                    "Be conservative. Output must match JSON schema. Reasons must reference only the given features.",
+                    "Be conservative. Output must match JSON schema. " +
+                    "Reasons must reference only the given features. " +
+                    "Write all reasons in Spanish.",
             user: JsonSerializer.Serialize(f),
             schemaName: "risk_score",
             schema: schema,
