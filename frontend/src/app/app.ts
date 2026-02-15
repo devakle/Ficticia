@@ -199,11 +199,20 @@ export class App {
   logout(): void {
     this.token = '';
     localStorage.removeItem('admin_token');
+    this.people = [];
+    this.totalPeople = 0;
+    this.selectPerson(null);
+    this.definitions = [];
+    this.definitionRulesDrafts = {};
+    this.syncDynamicFiltersWithDefinitions();
     this.notifySuccess('Token limpiado.');
   }
 
   async searchPeople(): Promise<void> {
     await this.run(async () => {
+      this.peopleSearch.page = this.normalizePeoplePage(this.peopleSearch.page);
+      this.peopleSearch.pageSize = this.normalizePeoplePageSize(this.peopleSearch.pageSize);
+
       let params = new HttpParams()
         .set('page', String(this.peopleSearch.page))
         .set('pageSize', String(this.peopleSearch.pageSize));
@@ -238,6 +247,8 @@ export class App {
 
       this.people = res.items;
       this.totalPeople = res.total;
+      this.peopleSearch.page = this.normalizePeoplePage(res.page);
+      this.peopleSearch.pageSize = this.normalizePeoplePageSize(res.pageSize);
       this.notifySuccess(`Se cargaron ${res.items.length} personas.`);
 
       if (this.selectedPerson) {
@@ -512,6 +523,63 @@ export class App {
     this.peopleSearch.dynamicFilters.push({ key: '', value: '' });
   }
 
+  get totalPeoplePages(): number {
+    return Math.max(1, Math.ceil(this.totalPeople / this.peopleSearch.pageSize));
+  }
+
+  get canGoToPreviousPeoplePage(): boolean {
+    return this.peopleSearch.page > 1;
+  }
+
+  get canGoToNextPeoplePage(): boolean {
+    return this.peopleSearch.page < this.totalPeoplePages;
+  }
+
+  get peopleFrom(): number {
+    if (this.totalPeople === 0 || this.people.length === 0) {
+      return 0;
+    }
+
+    return (this.peopleSearch.page - 1) * this.peopleSearch.pageSize + 1;
+  }
+
+  get peopleTo(): number {
+    if (this.totalPeople === 0 || this.people.length === 0) {
+      return 0;
+    }
+
+    return Math.min(this.totalPeople, this.peopleFrom + this.people.length - 1);
+  }
+
+  goToPreviousPeoplePage(): void {
+    this.goToPeoplePage(this.peopleSearch.page - 1);
+  }
+
+  goToNextPeoplePage(): void {
+    this.goToPeoplePage(this.peopleSearch.page + 1);
+  }
+
+  goToPeoplePage(page: number): void {
+    const nextPage = this.clampPeoplePage(page);
+    if (nextPage === this.peopleSearch.page) {
+      return;
+    }
+
+    this.peopleSearch.page = nextPage;
+    void this.searchPeople();
+  }
+
+  onPeoplePageSizeChange(): void {
+    const normalized = this.normalizePeoplePageSize(this.peopleSearch.pageSize);
+    if (normalized === this.peopleSearch.pageSize && this.peopleSearch.page === 1) {
+      return;
+    }
+
+    this.peopleSearch.pageSize = normalized;
+    this.peopleSearch.page = 1;
+    void this.searchPeople();
+  }
+
   removeDynamicFilter(index: number): void {
     this.peopleSearch.dynamicFilters.splice(index, 1);
     if (this.peopleSearch.dynamicFilters.length === 0) {
@@ -661,6 +729,27 @@ export class App {
   private nullIfEmpty(value: string): string | null {
     const trimmed = value.trim();
     return trimmed ? trimmed : null;
+  }
+
+  private normalizePeoplePage(page: number): number {
+    if (!Number.isFinite(page)) {
+      return 1;
+    }
+
+    return Math.max(1, Math.trunc(page));
+  }
+
+  private normalizePeoplePageSize(pageSize: number): number {
+    if (!Number.isFinite(pageSize)) {
+      return 20;
+    }
+
+    return Math.min(100, Math.max(1, Math.trunc(pageSize)));
+  }
+
+  private clampPeoplePage(page: number): number {
+    const normalized = this.normalizePeoplePage(page);
+    return Math.min(this.totalPeoplePages, normalized);
   }
 
   private normalizePagedResult<T>(raw: PagedResultRaw<T>): PagedResult<T> {

@@ -77,11 +77,24 @@
         </label>
         <label>
           Pagina
-          <input [(ngModel)]="peopleSearch.page" type="number" min="1" />
+          <input
+            [(ngModel)]="peopleSearch.page"
+            type="number"
+            min="1"
+            (keyup.enter)="goToPeoplePage(peopleSearch.page)"
+            (blur)="goToPeoplePage(peopleSearch.page)"
+          />
         </label>
         <label>
           Tamano de pagina
-          <input [(ngModel)]="peopleSearch.pageSize" type="number" min="1" max="100" />
+          <input
+            [(ngModel)]="peopleSearch.pageSize"
+            type="number"
+            min="1"
+            max="100"
+            (keyup.enter)="onPeoplePageSizeChange()"
+            (blur)="onPeoplePageSizeChange()"
+          />
         </label>
       </div>
 
@@ -129,7 +142,28 @@
         <button type="button" (click)="searchPeople()" [disabled]="busy || !token">Buscar</button>
       </div>
 
-      <p class="hint">Total: {{ totalPeople }}</p>
+      <div class="pagination">
+        <p class="hint">Mostrando {{ peopleFrom }}-{{ peopleTo }} de {{ totalPeople }}</p>
+        <div class="pagination-controls">
+          <button
+            type="button"
+            class="secondary"
+            (click)="goToPreviousPeoplePage()"
+            [disabled]="busy || !token || !canGoToPreviousPeoplePage"
+          >
+            Anterior
+          </button>
+          <span class="pagination-status">Pagina {{ peopleSearch.page }} de {{ totalPeoplePages }}</span>
+          <button
+            type="button"
+            class="secondary"
+            (click)="goToNextPeoplePage()"
+            [disabled]="busy || !token || !canGoToNextPeoplePage"
+          >
+            Siguiente
+          </button>
+        </div>
+      </div>
 
       <div class="table-wrap">
         <table>

@@ -317,6 +317,31 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.pagination {
+  margin-top: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.pagination .hint {
+  margin: 0;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.pagination-status {
+  font-size: 0.84rem;
+  color: var(--subtle);
+}
+
 .dynamic-filters {
   margin-top: 0.6rem;
 }
