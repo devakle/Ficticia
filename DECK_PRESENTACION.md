@@ -61,7 +61,7 @@ sequenceDiagram
 ## Slide 7 - Cambios tecnicos recientes
 - Startup SQL resiliente (wait + retry + lock de migraciones).
 - Logging estructurado HTTP + CQRS.
-- Seed idempotente de catalogos, roles y admin.
+- Seed idempotente de catalogos, roles y usuarios demo.
 - Paginacion y filtros dinamicos consolidados en UI.
 
 ## Slide 8 - Casos de uso cubiertos

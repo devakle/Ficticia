@@ -26,14 +26,16 @@ Valores tipicos:
 - `https://localhost:5001`
 
 Credenciales de desarrollo por defecto:
-- `admin@ficticia.local`
-- `Admin123!`
+- `admin@ficticia.local` / `Admin123!` (`Admin`)
+- `manager@ficticia.local` / `Manager123!` (`Manager`)
+- `viewer@ficticia.local` / `Viewer123!` (`Viewer`)
 
 ## 4. Funcionalidades principales
 
 ### 4.1 Autenticacion
 - Login contra `POST /api/v1/auth/login`.
-- Token Bearer almacenado en `localStorage` (`admin_token`).
+- Selector rapido de usuarios demo por rol (Admin/Manager/Viewer).
+- Token Bearer almacenado en `localStorage` (`auth_token`) y roles en `auth_roles`.
 
 ### 4.2 Personas
 - Buscar personas con filtros base y dinamicos.

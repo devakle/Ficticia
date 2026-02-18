@@ -13,8 +13,10 @@ docker compose -f docker/docker-compose.yml up -d --wait --wait-timeout 180
 3. Levantar frontend Angular.
 
 ### Credenciales demo
-- Email: `admin@ficticia.local`
-- Password: `Admin123!`
+- `admin@ficticia.local` / `Admin123!` (`Admin`)
+- `manager@ficticia.local` / `Manager123!` (`Manager`)
+- `viewer@ficticia.local` / `Viewer123!` (`Viewer`)
+- En la UI hay accesos rapidos por rol en la seccion de conexion.
 
 ### Datos base esperados
 - Definiciones seed disponibles:
@@ -57,16 +59,19 @@ docker compose -f docker/docker-compose.yml up -d --wait --wait-timeout 180
 ## 4. Seguridad por roles (mini-demostracion)
 
 ### Viewer
-- `GET /people`: permitido.
-- `POST /people`: `403`.
-- `GET /attributes/definitions`: `403`.
+1. Ingresar desde UI con boton `Entrar como Viewer`.
+2. Buscar personas: permitido.
+3. Intentar crear persona o guardar atributos: debe responder `403`.
+4. Intentar crear/editar definiciones: debe responder `403`.
 
 ### Manager
-- `POST /people`: permitido.
-- `POST /attributes/definitions`: `403`.
+1. Ingresar con `Entrar como Manager`.
+2. Crear/actualizar persona: permitido.
+3. Intentar crear definicion de atributo: debe responder `403`.
 
 ### Admin
-- Acceso completo, incluida gestion de definiciones.
+1. Ingresar con `Entrar como Admin`.
+2. Acceso completo, incluida gestion de definiciones.
 
 ## 5. IA aplicada
 

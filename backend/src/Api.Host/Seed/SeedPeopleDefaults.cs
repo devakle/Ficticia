@@ -45,34 +45,34 @@ public static class SeedPeopleDefaults
                     {
                         logger.LogInformation("PEOPLE MIGRATION SKIP: no pending migrations");
                     }
+
+                    if (await db.AttributeDefinitions.AnyAsync())
+                    {
+                        logger.LogInformation("PEOPLE SEED SKIP: AttributeDefinitions already exist");
+                        return;
+                    }
+
+                    db.AttributeDefinitions.AddRange(
+                        new AttributeDefinition("drives", "¿Maneja?", AttributeDataType.Boolean, true, null),
+                        new AttributeDefinition("uses_glasses", "¿Usa lentes?", AttributeDataType.Boolean, true, null),
+                        new AttributeDefinition("diabetic", "¿Es diabético?", AttributeDataType.Boolean, true, null),
+                        new AttributeDefinition("disease_text", "¿Padece alguna otra enfermedad? ¿Cuál?", AttributeDataType.String, true, null),
+                        new AttributeDefinition(
+                            "condition_code",
+                            "Condición (código)",
+                            AttributeDataType.Enum,
+                            true,
+                            "{ \"allowedValues\": [\"hipertension\",\"diabetes\",\"asma\",\"enfermedad_cardiaca\",\"ninguna\",\"desconocida\"] }"
+                        )
+                    );
+
+                    await db.SaveChangesAsync();
+                    logger.LogInformation("PEOPLE SEED DONE: default attribute definitions created");
                 });
         }
         catch (Exception ex) when (SqlServerStartup.IsDatabaseAlreadyExists(ex))
         {
             logger.LogWarning(ex, "PEOPLE MIGRATION CONTINUE: database already exists");
         }
-
-        if (await db.AttributeDefinitions.AnyAsync())
-        {
-            logger.LogInformation("PEOPLE SEED SKIP: AttributeDefinitions already exist");
-            return;
-        }
-
-        db.AttributeDefinitions.AddRange(
-            new AttributeDefinition("drives", "¿Maneja?", AttributeDataType.Boolean, true, null),
-            new AttributeDefinition("uses_glasses", "¿Usa lentes?", AttributeDataType.Boolean, true, null),
-            new AttributeDefinition("diabetic", "¿Es diabético?", AttributeDataType.Boolean, true, null),
-            new AttributeDefinition("disease_text", "¿Padece alguna otra enfermedad? ¿Cuál?", AttributeDataType.String, true, null),
-            new AttributeDefinition(
-                "condition_code",
-                "Condición (código)",
-                AttributeDataType.Enum,
-                true,
-                "{ \"allowedValues\": [\"hipertension\",\"diabetes\",\"asma\",\"enfermedad_cardiaca\",\"ninguna\",\"desconocida\"] }"
-            )
-        );
-
-        await db.SaveChangesAsync();
-        logger.LogInformation("PEOPLE SEED DONE: default attribute definitions created");
     }
 }

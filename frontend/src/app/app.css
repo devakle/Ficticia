@@ -283,6 +283,28 @@ button:disabled {
   margin-top: 1rem;
 }
 
+.demo-accounts {
+  margin-top: 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 0.75rem;
+}
+
+.demo-grid {
+  margin-top: 0.7rem;
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.demo-card {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.55rem 0.6rem;
+  background: color-mix(in oklab, var(--panel) 88%, #e7f1fb);
+}
+
 .actions.split {
   justify-content: flex-end;
   flex-wrap: wrap;
@@ -712,6 +734,10 @@ small {
   .grid.three {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .demo-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 960px) {
@@ -764,6 +790,10 @@ small {
 
   .actions.split {
     justify-content: flex-start;
+  }
+
+  .demo-grid {
+    grid-template-columns: 1fr;
   }
 
   .inline-checkbox {

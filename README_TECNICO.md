@@ -63,7 +63,7 @@ Se aplico una estrategia defensiva para evitar fallos intermitentes de entorno l
   - atributos base (`drives`, `uses_glasses`, `diabetic`, `disease_text`, `condition_code`).
 - `SeedIdentityDefaults`:
   - roles `Admin`, `Manager`, `Viewer`.
-  - usuario admin por defecto.
+  - usuarios demo por rol (`Admin`, `Manager`, `Viewer`).
 
 ## 4. Pipeline de request y observabilidad
 

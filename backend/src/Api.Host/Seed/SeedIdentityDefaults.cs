@@ -17,6 +17,8 @@ public static class SeedIdentityDefaults
         logger.LogInformation("IDENTITY SEED START");
 
         var cs = db.Database.GetConnectionString();
+        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
 
         await SqlServerStartup.WaitUntilServerReadyAsync(cs, "IdentityDb", logger);
 
@@ -46,51 +48,75 @@ public static class SeedIdentityDefaults
                     {
                         logger.LogInformation("IDENTITY MIGRATION SKIP: no pending migrations");
                     }
+
+                    var roles = new[] { "Admin", "Manager", "Viewer" };
+
+                    foreach (var role in roles)
+                    {
+                        if (!await roleManager.RoleExistsAsync(role))
+                        {
+                            await roleManager.CreateAsync(new IdentityRole(role));
+                        }
+                    }
+
+                    var seedUsers = new[]
+                    {
+                        new SeedUser("admin@ficticia.local", "Admin123!", "Admin"),
+                        new SeedUser("manager@ficticia.local", "Manager123!", "Manager"),
+                        new SeedUser("viewer@ficticia.local", "Viewer123!", "Viewer")
+                    };
+
+                    foreach (var seedUser in seedUsers)
+                    {
+                        await EnsureUserWithRoleAsync(userManager, seedUser, logger);
+                    }
                 });
         }
         catch (Exception ex) when (SqlServerStartup.IsDatabaseAlreadyExists(ex))
         {
             logger.LogWarning(ex, "IDENTITY MIGRATION CONTINUE: database already exists");
         }
+    }
 
-        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
-
-        var roles = new[] { "Admin", "Manager", "Viewer" };
-
-        foreach (var r in roles)
+    private static async Task EnsureUserWithRoleAsync(
+        UserManager<IdentityUser> userManager,
+        SeedUser seedUser,
+        ILogger logger)
+    {
+        var user = await userManager.FindByEmailAsync(seedUser.Email);
+        if (user is null)
         {
-            if (!await roleManager.RoleExistsAsync(r))
+            user = new IdentityUser
             {
-                await roleManager.CreateAsync(new IdentityRole(r));
-            }
-        }
-
-        var adminEmail = "admin@ficticia.local";
-        var adminPass = "Admin123!";
-
-        var admin = await userManager.FindByEmailAsync(adminEmail);
-        if (admin is null)
-        {
-            admin = new IdentityUser
-            {
-                UserName = adminEmail,
-                Email = adminEmail,
+                UserName = seedUser.Email,
+                Email = seedUser.Email,
                 EmailConfirmed = true
             };
 
-            var created = await userManager.CreateAsync(admin, adminPass);
+            var created = await userManager.CreateAsync(user, seedUser.Password);
             if (!created.Succeeded)
             {
-                throw new Exception("Failed creating admin: " + string.Join("; ", created.Errors.Select(e => e.Description)));
+                throw new Exception($"Failed creating {seedUser.Role} user: " + string.Join("; ", created.Errors.Select(e => e.Description)));
             }
 
-            await userManager.AddToRoleAsync(admin, "Admin");
-            logger.LogInformation("IDENTITY SEED DONE: default admin user created");
+            logger.LogInformation("IDENTITY SEED DONE: user {Email} created", seedUser.Email);
         }
         else
         {
-            logger.LogInformation("IDENTITY SEED SKIP: default admin already exists");
+            logger.LogInformation("IDENTITY SEED SKIP: user {Email} already exists", seedUser.Email);
+        }
+
+        if (!await userManager.IsInRoleAsync(user, seedUser.Role))
+        {
+            var added = await userManager.AddToRoleAsync(user, seedUser.Role);
+            if (!added.Succeeded)
+            {
+                throw new Exception($"Failed assigning role {seedUser.Role} to {seedUser.Email}: " + string.Join("; ", added.Errors.Select(e => e.Description)));
+            }
+
+            logger.LogInformation("IDENTITY SEED DONE: role {Role} assigned to {Email}", seedUser.Role, seedUser.Email);
         }
     }
+
+    private sealed record SeedUser(string Email, string Password, string Role);
 }

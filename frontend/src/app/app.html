@@ -6,6 +6,7 @@
     </div>
     <div class="status">
       <span class="chip" [class.off]="!token">{{ token ? 'Autenticado' : 'Sin token' }}</span>
+      <span class="chip" [class.off]="!token">Rol activo: {{ currentRoleSummary }}</span>
       <button type="button" class="secondary" (click)="toggleTheme()">
         {{ themeMode === 'dark' ? 'Modo claro' : 'Modo oscuro' }}
       </button>
@@ -29,6 +30,30 @@
         <input [(ngModel)]="password" type="password" placeholder="Admin123!" />
       </label>
     </div>
+    <div class="demo-accounts">
+      <p class="hint">Acceso rápido de demo por rol</p>
+      <div class="actions demo-actions">
+        @for (credential of demoCredentials; track credential.role) {
+          <button
+            type="button"
+            class="secondary demo-button"
+            (click)="loginAsDemo(credential)"
+            [disabled]="busy"
+            [class.active]="isRoleActive(credential.role)"
+          >
+            Entrar como {{ credential.role }}
+          </button>
+        }
+      </div>
+      <div class="demo-grid">
+        @for (credential of demoCredentials; track credential.role) {
+          <article class="demo-card" [class.active]="isRoleActive(credential.role)">
+            <p><strong>{{ credential.role }}</strong> · {{ credential.email }}</p>
+            <small>{{ credential.expectedAccess }}</small>
+          </article>
+        }
+      </div>
+    </div>
     <div class="actions">
       <button type="button" (click)="login()" [disabled]="busy">Iniciar sesión y cargar datos</button>
     </div>
@@ -46,6 +71,9 @@
   <section class="layout-two">
     <article class="panel">
       <h2>Personas</h2>
+      <p class="hint">
+        Permiso esperado de escritura: {{ hasPeopleWriteAccess ? 'habilitado' : 'bloqueado (debe responder 403 en API)' }}.
+      </p>
 
       <div class="grid three">
         <label>
@@ -247,6 +275,9 @@
 
     <article class="panel">
       <h2>Definiciones de Atributos</h2>
+      <p class="hint">
+        Permiso esperado de gestión: {{ hasAttributesManageAccess ? 'habilitado' : 'solo Admin (debe responder 403 en API)' }}.
+      </p>
 
       <label class="inline-checkbox">
         <input type="checkbox" [(ngModel)]="includeInactiveDefinitions" />
@@ -539,6 +570,9 @@
 
   <section class="panel">
     <h2>Atributos de la Persona Seleccionada</h2>
+    <p class="hint">
+      Guardado de atributos: {{ hasPeopleWriteAccess ? 'habilitado' : 'solo Admin/Manager (debe responder 403 en API)' }}.
+    </p>
     @if (!selectedPerson) {
       <p class="hint">Selecciona una persona para editar sus atributos.</p>
     } @else {

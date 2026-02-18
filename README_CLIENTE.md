@@ -63,10 +63,21 @@ Ficticia es una plataforma para operar el ciclo completo de gestion de personas,
 
 - Se robustecio el arranque contra SQL Server (espera activa, retries y lock de migraciones).
 - Se estandarizo el logging para trazabilidad de requests y casos CQRS.
-- Se reforzo la inicializacion de catalogos, roles y usuario admin.
+- Se reforzo la inicializacion de catalogos, roles y usuarios demo por rol.
 - Se consolidaron busqueda paginada y filtros dinamicos en UI.
 
-## 8. Alcance cubierto hoy
+## 8. Accesos demo para la presentacion
+
+- Admin: `admin@ficticia.local` / `Admin123!`
+- Manager: `manager@ficticia.local` / `Manager123!`
+- Viewer: `viewer@ficticia.local` / `Viewer123!`
+- La UI incluye botones de acceso rapido por rol y muestra el rol activo.
+- Para demostrar seguridad desde el front:
+  1. Entrar como Viewer y ejecutar una accion de escritura (debe devolver `403`).
+  2. Entrar como Manager y mostrar operacion de personas.
+  3. Entrar como Admin y mostrar gestion de definiciones.
+
+## 9. Alcance cubierto hoy
 
 ### Incluido
 - Operacion completa de personas.
@@ -80,7 +91,7 @@ Ficticia es una plataforma para operar el ciclo completo de gestion de personas,
 3. Flujo IA con fallback y metricas de calidad por entorno.
 4. Endurecimiento de seguridad para produccion (secretos, hardening, compliance).
 
-## 9. Demo ejecutiva sugerida (10-15 min)
+## 10. Demo ejecutiva sugerida (10-15 min)
 
 1. Login.
 2. Alta de persona.

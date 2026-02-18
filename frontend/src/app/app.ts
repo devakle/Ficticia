@@ -13,7 +13,7 @@ import {
   UpsertAttributeValueDto,
   ValidationRulesDraft
 } from './core/models/domain.models';
-import { AuthApiService } from './core/services/auth-api.service';
+import { AuthApiService, LoginResult } from './core/services/auth-api.service';
 import { ErrorMessageService } from './core/services/error-message.service';
 import { ThemeService } from './core/services/theme.service';
 import { ToastService } from './core/services/toast.service';
@@ -23,6 +23,19 @@ import { AttributesApiService } from './features/attributes/services/attributes-
 import { ValidationRulesService } from './features/attributes/services/validation-rules.service';
 import { PeopleApiService } from './features/people/services/people-api.service';
 import { PaginationItem, PeoplePaginationService } from './features/people/services/people-pagination.service';
+
+const TOKEN_STORAGE_KEY = 'auth_token';
+const LEGACY_TOKEN_STORAGE_KEY = 'admin_token';
+const ROLES_STORAGE_KEY = 'auth_roles';
+
+type DemoRole = 'Admin' | 'Manager' | 'Viewer';
+
+interface DemoCredential {
+  role: DemoRole;
+  email: string;
+  password: string;
+  expectedAccess: string;
+}
 
 @Component({
   selector: 'app-root',
@@ -58,10 +71,32 @@ export class App {
     { value: 5, label: 'Enumerado' }
   ];
 
+  readonly demoCredentials: DemoCredential[] = [
+    {
+      role: 'Admin',
+      email: 'admin@ficticia.local',
+      password: 'Admin123!',
+      expectedAccess: 'Acceso total (personas, atributos e IA).'
+    },
+    {
+      role: 'Manager',
+      email: 'manager@ficticia.local',
+      password: 'Manager123!',
+      expectedAccess: 'Puede operar personas e IA, sin gestionar definiciones.'
+    },
+    {
+      role: 'Viewer',
+      email: 'viewer@ficticia.local',
+      password: 'Viewer123!',
+      expectedAccess: 'Solo lectura de personas e IA; sin operaciones de escritura.'
+    }
+  ];
+
   apiBaseUrl = '';
   email = 'admin@ficticia.local';
   password = 'Admin123!';
-  token = localStorage.getItem('admin_token') ?? '';
+  token = this.readTokenFromStorage();
+  currentRoles = this.readRolesFromStorage();
   themeMode: 'light' | 'dark' = this.theme.getInitialTheme();
 
   busy = false;
@@ -112,11 +147,42 @@ export class App {
     return this.themeMode === 'dark';
   }
 
+  constructor() {
+    if (!this.token || this.currentRoles.length > 0) {
+      return;
+    }
+
+    this.currentRoles = this.extractRolesFromJwt(this.token);
+    this.persistRoles();
+  }
+
+  get currentRoleSummary(): string {
+    return this.currentRoles.length ? this.currentRoles.join(', ') : 'Sin rol';
+  }
+
+  get hasPeopleWriteAccess(): boolean {
+    return this.hasAnyRole('Admin', 'Manager');
+  }
+
+  get hasAttributesManageAccess(): boolean {
+    return this.hasRole('Admin');
+  }
+
+  async loginAsDemo(credential: DemoCredential): Promise<void> {
+    this.email = credential.email;
+    this.password = credential.password;
+    await this.login();
+  }
+
+  isRoleActive(role: string): boolean {
+    return this.hasRole(role);
+  }
+
   async login(): Promise<void> {
     await this.run(async () => {
-      this.token = await this.authApi.login(this.apiBaseUrl, this.email, this.password);
-      localStorage.setItem('admin_token', this.token);
-      this.notifySuccess('Autenticación exitosa.');
+      const auth = await this.authApi.login(this.apiBaseUrl, this.email, this.password);
+      this.setAuthSession(auth);
+      this.notifySuccess(`Autenticación exitosa (${this.currentRoleSummary}).`);
 
       await Promise.all([this.searchPeople(), this.loadDefinitions()]);
     });
@@ -124,7 +190,10 @@ export class App {
 
   logout(): void {
     this.token = '';
-    localStorage.removeItem('admin_token');
+    this.currentRoles = [];
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
+    localStorage.removeItem(ROLES_STORAGE_KEY);
     this.people = [];
     this.totalPeople = 0;
     this.selectPerson(null);
@@ -629,6 +698,83 @@ export class App {
     }
 
     return this.filterableDefinitions.find(def => def.key === filter.key) ?? null;
+  }
+
+  private hasRole(role: string): boolean {
+    return this.currentRoles.some(current => current.toLowerCase() === role.toLowerCase());
+  }
+
+  private hasAnyRole(...roles: string[]): boolean {
+    return roles.some(role => this.hasRole(role));
+  }
+
+  private setAuthSession(auth: LoginResult): void {
+    this.token = auth.accessToken;
+    this.currentRoles = this.normalizeRoles(auth.roles.length ? auth.roles : this.extractRolesFromJwt(auth.accessToken));
+
+    localStorage.setItem(TOKEN_STORAGE_KEY, this.token);
+    localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
+    this.persistRoles();
+  }
+
+  private readTokenFromStorage(): string {
+    return (localStorage.getItem(TOKEN_STORAGE_KEY) ?? localStorage.getItem(LEGACY_TOKEN_STORAGE_KEY) ?? '').trim();
+  }
+
+  private readRolesFromStorage(): string[] {
+    const raw = localStorage.getItem(ROLES_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      return this.normalizeRoles(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      return [];
+    }
+  }
+
+  private persistRoles(): void {
+    localStorage.setItem(ROLES_STORAGE_KEY, JSON.stringify(this.currentRoles));
+  }
+
+  private normalizeRoles(roles: string[]): string[] {
+    const normalized = roles
+      .map(role => role.trim())
+      .filter(role => !!role);
+
+    return [...new Set(normalized)];
+  }
+
+  private extractRolesFromJwt(token: string): string[] {
+    const parts = token.split('.');
+    if (parts.length < 2) {
+      return [];
+    }
+
+    try {
+      const payload = JSON.parse(this.decodeBase64Url(parts[1]));
+      const roleClaim = payload?.['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
+
+      if (Array.isArray(roleClaim)) {
+        return this.normalizeRoles(roleClaim.filter((role): role is string => typeof role === 'string'));
+      }
+
+      if (typeof roleClaim === 'string') {
+        return this.normalizeRoles([roleClaim]);
+      }
+    } catch {
+      return [];
+    }
+
+    return [];
+  }
+
+  private decodeBase64Url(value: string): string {
+    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    return atob(padded);
   }
 
   private notifySuccess(text: string): void {

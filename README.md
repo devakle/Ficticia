@@ -18,7 +18,7 @@ Plataforma full-stack para gestion de personas, atributos dinamicos y capacidade
   - `ValidationBehavior` para registrar y abortar requests invalidas.
 - Hardening de seed de People e Identity:
   - migraciones seguras en concurrencia.
-  - usuario admin y roles por defecto idempotentes.
+  - usuarios demo por rol (`Admin`, `Manager`, `Viewer`) idempotentes.
 - Frontend Angular consolidado para:
   - paginacion (page/pageSize, rango visible, ellipsis).
   - filtros dinamicos tipados por atributos.
@@ -80,7 +80,7 @@ flowchart LR
    - lock exclusivo por DB.
    - ensure DB exists.
    - aplica migraciones pendientes con retry.
-   - seed de catalogo People + roles/admin Identity.
+   - seed de catalogo People + roles/usuarios demo Identity.
 5. Expone Swagger, middlewares, auth y controllers.
 
 ### Pipeline HTTP/CQRS
@@ -212,8 +212,9 @@ flowchart LR
 - `Redis:ConnectionString` (opcional)
 
 ### Credenciales de desarrollo seed
-- Email: `admin@ficticia.local`
-- Password: `Admin123!`
+- `admin@ficticia.local` / `Admin123!` (`Admin`)
+- `manager@ficticia.local` / `Manager123!` (`Manager`)
+- `viewer@ficticia.local` / `Viewer123!` (`Viewer`)
 
 ## 10. Ejecucion local
 
