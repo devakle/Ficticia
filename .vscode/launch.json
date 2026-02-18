@@ -1,0 +1,24 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C#: API Debug",
+      "type": "dotnet",
+      "request": "launch",
+      "preLaunchTask": "docker-up-wait-sql",
+      "projectPath": "${workspaceFolder}/backend/src/Api.Host/Api.Host.csproj"
+    },
+    {
+      "name": "Debug Api.Host",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "docker-up-wait-sql",
+      "postDebugTask": "docker-down",
+      "program": "${workspaceFolder}/backend/src/Api.Host/bin/Debug/net10.0/Api.Host.dll",
+      "cwd": "${workspaceFolder}/backend/src/Api.Host",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  ]
+}
