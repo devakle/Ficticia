@@ -1,212 +1,276 @@
 # Ficticia - Documento Tecnico
 
-## 1. Alcance tecnico
-Este documento describe arquitectura, componentes, flujos, seguridad, operacion, testing y lineamientos de evolucion del proyecto Ficticia.
+Documento de referencia tecnica del estado actual del proyecto.
 
-## 2. Stack
-- Backend: ASP.NET Core (.NET 10), EF Core, MediatR, FluentValidation.
-- Identidad: ASP.NET Identity + JWT.
-- Datos: SQL Server (PeopleDb e IdentityDb).
-- Cache: IDistributedCache (Redis en runtime; memory cache en tests).
-- IA: modulo desacoplado con proveedor OpenAI.
-- Frontend: Angular 21 + TypeScript + Vitest.
-- CI: GitHub Actions.
+## 1. Objetivo tecnico
 
-## 3. Estructura de solucion
+Ficticia implementa una arquitectura modular para gestionar personas y atributos dinamicos, con:
+- API segura por JWT + RBAC.
+- pipeline CQRS con trazabilidad y validacion.
+- startup resiliente para SQL Server.
+- capacidades de IA desacopladas del core de negocio.
+
+## 2. Arquitectura y composicion
+
+### 2.1 Solucion
 ```text
-Ficticia.slnx
 backend/src/Api.Host
-backend/src/BuildingBlocks/*
-backend/src/Modules/Modules.People/*
-backend/src/Modules/Modules.Identity/*
-backend/src/Modules/Modules.AI/*
+backend/src/BuildingBlocks
+backend/src/Modules/Modules.People
+backend/src/Modules/Modules.Identity
+backend/src/Modules/Modules.AI
 backend/tests/*
 frontend/*
 ```
 
-## 4. Arquitectura
+### 2.2 Composicion en `Program.cs`
+- Logging bootstrap con Serilog.
+- Registro de modulos:
+  - `AddBuildingBlocks()`
+  - `AddPeopleModule(...)`
+  - `AddAiModule(...)`
+- Registro de Identity + JWT + policies.
+- Registro MediatR y validators.
+- Middlewares:
+  - `RequestLoggingMiddleware`
+  - `ExceptionMiddleware`
+- Startup SQL y seed tolerante a concurrencia.
 
-### 4.1 Vista general
-```mermaid
-flowchart LR
-  FE[Angular Frontend] --> API[Api.Host]
-  API --> PPL[Modules.People]
-  API --> IDN[Modules.Identity]
-  API --> AIM[Modules.AI]
-  PPL --> SQLP[(PeopleDb)]
-  IDN --> SQLI[(IdentityDb)]
-  PPL --> RDS[(Redis/IDistributedCache)]
-  AIM --> OAI[OpenAI]
-```
+## 3. Flujo de arranque robusto SQL
 
-### 4.2 Patrón por capas
-```mermaid
-flowchart TD
-  C[Contracts] --> A[Application]
-  A --> D[Domain]
-  A --> I[Infrastructure]
-```
+Se aplico una estrategia defensiva para evitar fallos intermitentes de entorno local/CI:
 
-## 5. Pipeline de request
-```mermaid
-sequenceDiagram
-  participant H as HTTP Client
-  participant C as Controller
-  participant M as MediatR
-  participant V as Validator
-  participant HD as Handler
-  participant R as Repository
-  participant DB as SQL Server
+1. `WaitUntilServerReadyAsync(...)`
+- Conecta a `master`.
+- Ejecuta `SELECT 1`.
+- Reintentos con backoff.
+- Detecta errores transitorios (`SqlException` comunes y timeouts).
 
-  H->>C: HTTP + JWT
-  C->>M: Send(Command/Query)
-  M->>V: Validation
-  V-->>M: OK/Error
-  M->>HD: Handle
-  HD->>R: Query/Update
-  R->>DB: EF Core
-  DB-->>R: Result
-  R-->>HD: Entity/DTO
-  HD-->>C: Result
-  C-->>H: HTTP Response
-```
+2. `RunWithDatabaseLockAsync(...)`
+- Usa `sp_getapplock` exclusivo por DB (`ficticia:migrate:{db}`).
+- Evita colisiones de migracion/seeding cuando hay varios procesos.
 
-## 6. Modulos funcionales
+3. `EnsureDatabaseExistsAsync(...)`
+- Crea DB si falta con `CREATE DATABASE` idempotente.
+- Tolera error `1801` (already exists).
 
-### 6.1 People
-- Comandos: create, update, set status, upsert attributes.
-- Queries: get by id, search, get attributes, get attribute form.
-- Validaciones:
-- shape de valor por tipo.
-- reglas de negocio (`required`, `allowedValues`, `regex`, `min/max`, `minDate/maxDate`).
+4. `GetPendingMigrationsWithRetriesAsync(...)` + `MigrateWithRetriesAsync(...)`
+- Evalua pendientes y migra solo si corresponde.
+- Reintenta ante fallas transitorias.
 
-### 6.2 Attributes
-- Definicion de catalogo dinamico.
-- Alta y actualizacion de definiciones.
-- Integracion con cache de catalogo.
+5. Seed
+- `SeedPeopleDefaults`:
+  - atributos base (`drives`, `uses_glasses`, `diabetic`, `disease_text`, `condition_code`).
+- `SeedIdentityDefaults`:
+  - roles `Admin`, `Manager`, `Viewer`.
+  - usuario admin por defecto.
 
-### 6.3 Identity
-- Login con email/password.
-- JWT con claims y roles.
-- Roles seed: `Admin`, `Manager`, `Viewer`.
+## 4. Pipeline de request y observabilidad
 
-### 6.4 AI
-- Normalizacion de condicion.
-- Risk score por persona.
-- Manejo de errores de proveedor encapsulado.
+### 4.1 Middleware HTTP
+- `RequestLoggingMiddleware`
+  - log de inicio/fin/fallo HTTP.
+  - incluye metodo, path, host, esquema, status, elapsed, `TraceId`.
+  - severidad por status code.
 
-## 7. Seguridad
+- `ExceptionMiddleware`
+  - `ValidationException` -> `400` + `ProblemDetails`.
+  - violacion de unique constraint -> `409` + `ProblemDetails`.
+  - error no controlado -> `500`.
 
-### 7.1 Politicas
-- `People.Read`: Admin, Manager, Viewer
-- `People.Write`: Admin, Manager
-- `Attributes.Manage`: Admin
+### 4.2 Pipeline MediatR
+- `LoggingBehavior<TRequest,TResponse>`
+  - START/OK/FAIL por request.
+  - duracion en ms.
+  - payload/response estructurados.
+- `ValidationBehavior<TRequest,TResponse>`
+  - ejecuta `IValidator<TRequest>`.
+  - log warning con detalle de errores.
+  - aborta flujo con `ValidationException`.
 
-### 7.2 Endpoints protegidos
-- People y AI requieren `People.Read` (con write donde corresponde).
-- Attributes requiere `Attributes.Manage`.
+### 4.3 Formato de logs
+- Serilog consola con `outputTemplate`:
+  - timestamp
+  - nivel
+  - `Component`
+  - `TraceId`
+  - `SourceContext`
+  - mensaje + excepcion
 
-## 8. Endpoints API
+## 5. Seguridad
 
-### Auth
-- `POST /api/v1/auth/login`
+### 5.1 Auth
+- Endpoint: `POST /api/v1/auth/login`.
+- Emite JWT con claims de identidad y roles.
 
-### People
-- `POST /api/v1/people`
-- `PUT /api/v1/people/{id}`
-- `PATCH /api/v1/people/{id}/status`
-- `GET /api/v1/people/{id}`
-- `GET /api/v1/people`
-- `PUT /api/v1/people/{personId}/attributes`
-- `GET /api/v1/people/{personId}/attributes`
-- `GET /api/v1/people/{personId}/attributes/form`
+### 5.2 Authorization policies
+- `People.Read`: Admin/Manager/Viewer.
+- `People.Write`: Admin/Manager.
+- `Attributes.Manage`: Admin.
 
-### Attributes
-- `GET /api/v1/attributes/definitions`
-- `POST /api/v1/attributes/definitions`
-- `PUT /api/v1/attributes/definitions/{id}`
+Nota de estado actual:
+- `POST /api/v1/people` exige `People.Write`.
+- `PUT/PATCH /api/v1/people` heredan `People.Read` y deben endurecerse en siguiente iteracion.
 
-### AI
-- `POST /api/v1/ai/conditions/normalize`
-- `POST /api/v1/ai/people/{personId}/risk-score`
+### 5.3 Contratos de acceso validados por tests
+- Viewer:
+  - puede leer personas.
+  - no puede escribir personas.
+  - no puede gestionar definiciones.
+- Manager:
+  - puede escribir personas.
+  - no puede gestionar definiciones.
+- Admin:
+  - acceso completo.
 
-## 9. Datos y configuracion
-- DBs:
-- `ConnectionStrings:PeopleDb`
-- `ConnectionStrings:IdentityDb`
+## 6. Dominio People y atributos dinamicos
+
+### 6.1 AttributeDataType
+- `1` Boolean
+- `2` String
+- `3` Number
+- `4` Date
+- `5` Enum
+
+### 6.2 Validacion de shape
+- Se permite enviar 0 valores (clear) o 1 valor.
+- Si hay >1 valor -> `attributes.invalid_shape`.
+- Si el tipo no coincide -> `attributes.invalid_shape`.
+
+### 6.3 Validacion de reglas
+`AttributeValidationRules` soporta:
+- `required`
+- `allowedValues` (enum)
+- `maxLength`, `regex` (string)
+- `min`, `max` (number)
+- `minDate`, `maxDate` (date)
+
+### 6.4 Busqueda dinamica
+Admite dos formatos de query:
+- `attr.key=value`
+- `attr[key]=value`
+
+Validaciones:
+- key inexistente/no filtrable -> `filters.invalid`.
+- tipo invalido (ej. bool mal parseado) -> `filters.invalid`.
+
+Paginacion:
+- `page >= 1`
+- `pageSize` clamped `1..100`
+- respuesta `PagedResult<T>` con `items/total/page/pageSize`.
+
+## 7. Modulo AI
+
+### 7.1 Normalizacion
+- Handler: `NormalizeConditionHandler`.
+- Servicio: `OpenAiConditionNormalizer`.
+- Flujo:
+  - obtiene codigos permitidos desde catalogo People.
+  - llama OpenAI Responses con JSON schema estricto.
+  - normaliza code en lowercase.
+  - si confianza >= threshold, sugiere `condition_code`.
+
+### 7.2 Scoring
+- Handler: `ScorePersonRiskHandler`.
+- Servicio: `OpenAiRiskScorer`.
+- Flujo:
+  - obtiene `PersonRiskFeatures` desde People.
+  - llama OpenAI con schema `{score, band, reasons}`.
+  - mapea banda Low/Medium/High.
+
+### 7.3 Errores AI
+- `ai.invalid_input`
+- `ai.provider_failed`
+- `ai.person_not_found`
+
+### 7.4 Observacion tecnica
+- Existe implementacion de `DictionaryFallback(...)` en normalizador, pero actualmente no se invoca en la ruta principal.
+
+## 8. Configuracion por ambiente
+
+### 8.1 Claves backend
+- Connection strings:
+  - `ConnectionStrings:PeopleDb`
+  - `ConnectionStrings:IdentityDb`
 - JWT:
-- `Jwt:Issuer`, `Jwt:Audience`, `Jwt:Key`, `Jwt:ExpiresMinutes`
+  - `Jwt:Issuer`, `Jwt:Audience`, `Jwt:Key`, `Jwt:ExpiresMinutes`
 - OpenAI:
-- `OpenAI:ApiKey`, `OpenAI:Model`, `OpenAI:BaseUrl`
-- Risk rules:
-- `RiskRules:*`
+  - `OpenAI:ApiKey`, `OpenAI:BaseUrl`, `OpenAI:Model`, `OpenAI:ConfidenceThreshold`
+- Risk:
+  - `RiskRules:*`
+- Redis opcional:
+  - `Redis:ConnectionString`
 
-## 10. Ejecucion local
+### 8.2 Nota de consistencia
+- La opcion consumida por codigo es `OpenAI:ConfidenceThreshold`.
 
-### Infraestructura
-```bash
-docker compose -f docker/docker-compose.yml up -d
-```
+## 9. Frontend tecnico
 
-### Backend
-```bash
-cd backend/src/Api.Host
-dotnet restore ../../../Ficticia.slnx
-dotnet run
-```
+### 9.1 Caracteristicas implementadas
+- Login y persistencia de token en `localStorage`.
+- CRUD de personas y cambio de estado.
+- Catalogo de definiciones y edicion de reglas.
+- Edicion de atributos por persona.
+- Filtros dinamicos tipados y paginacion visual (incluye ellipsis).
+- Normalizacion IA y score de riesgo sobre persona seleccionada.
 
-### Frontend
-```bash
-cd frontend
-npm ci
-npm run start
-```
+### 9.2 Integracion API
+- Servicios por dominio:
+  - `AuthApiService`
+  - `PeopleApiService`
+  - `AttributesApiService`
+  - `AiApiService`
 
-## 11. Testing
+## 10. Testing
 
-### Unit
-```bash
-dotnet test backend/tests/Modules.People.UnitTests/Modules.People.UnitTests.csproj
-```
+### 10.1 Unit
+- `AttributeRulesValidatorTests`
+- `AttributeValueShapeValidatorTests`
 
-### Integration
-```bash
-dotnet test backend/tests/Modules.People.IntegrationTests/Modules.People.IntegrationTests.csproj
-```
+### 10.2 Integration
+- `AuthLoginTests`
+- `RoleAuthorizationTests`
+- `PeopleEndpointsTests`
+- `PeopleAttributeUpsertTests`
+- `AttributeDefinitionsTests`
+- `AiEndpointsTests`
 
-## 12. CI/CD
+### 10.3 Infra de tests
+- SQL Server con Testcontainers.
+- Override de `IDistributedCache` a memory cache para determinismo.
+- AI sustituida por fakes en tests de endpoints IA.
+
+## 11. CI/CD
+
 Workflow: `.github/workflows/ci.yml`
 
-### Backend job
-1. Restore.
-2. Build Release.
-3. Test Release con TRX.
-4. Upload de artefactos de pruebas.
+Backend:
+- SQL Server service en job.
+- restore/build/test release.
+- export de `.trx`.
 
-### Frontend job
-1. `npm ci`
-2. lint
-3. test
-4. build
+Frontend:
+- install/test/build.
+- `lint` condicionado con `--if-present`.
 
-## 13. Observabilidad
-- Request logging middleware.
-- Exception middleware con `ProblemDetails`.
-- Swagger habilitado.
+## 12. Operacion y troubleshooting
 
-## 14. Riesgos tecnicos y mitigaciones
-- Redis no disponible en CI/local.
-- Mitigacion: memory distributed cache en tests.
-- Dependencia de OpenAI.
-- Mitigacion: encapsulacion de proveedor, fallback, timeouts.
-- Cambios de negocio en atributos.
-- Mitigacion: catalogo dinamico y suite de regresion.
+### SQL no disponible al arrancar
+- validar `docker compose ps`.
+- revisar healthcheck de SQL container.
+- verificar password/connection string.
 
-## 15. Roadmap tecnico
-1. Health checks + readiness/liveness.
-2. Telemetria distribuida + dashboards.
-3. Versionado formal de API.
-4. Auditoria de cambios.
-5. Hardening de secretos.
-6. Pruebas contract/e2e.
+### Fallos de auth
+- revisar `Jwt:Key` no vacio.
+- validar clock del host (expiracion token).
 
+### Fallos AI
+- revisar `OpenAI:ApiKey`, `OpenAI:BaseUrl`, `OpenAI:Model`.
+- verificar reachability de internet/salida HTTPS del entorno.
+
+## 13. Backlog tecnico recomendado
+1. Activar health checks (`/health/live`, `/health/ready`).
+2. Completar wiring de fallback IA controlado por config.
+3. Integrar OpenTelemetry (logs/traces/metrics).
+4. Agregar contract tests de API y e2e de frontend.
+5. Externalizar secretos (Vault/Secret Manager).

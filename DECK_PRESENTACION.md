@@ -1,92 +1,104 @@
 # Deck de Presentacion - Ficticia
 
-Este archivo funciona como guion de slides en markdown.
+Guion de slides en markdown para cliente + equipo tecnico.
 
 ## Slide 1 - Portada
 - Ficticia
-- Gestion Inteligente de Personas, Atributos y Riesgo
-- Presentacion para Cliente y Equipo Tecnico
+- Gestion de Personas, Atributos Dinamicos e IA Aplicada
+- Estado actual y roadmap
 
 ## Slide 2 - Problema
-- Datos fragmentados.
-- Procesos manuales y lentos.
-- Baja estandarizacion para analitica y riesgo.
+- Datos de personas dispersos y heterogeneos.
+- Alta friccion para agregar campos de negocio.
+- Evaluacion de riesgo lenta y manual.
 
 ## Slide 3 - Solucion
-- Plataforma unica para personas.
-- Catalogo de atributos dinamicos.
+- Plataforma unica para operar personas.
+- Catalogo de atributos configurable.
 - IA para normalizacion y scoring.
-- Seguridad por roles.
+- Seguridad por roles desde el diseno.
 
-## Slide 4 - Valor para negocio
-- Rapida adaptacion a nuevos requisitos.
-- Mejor calidad de dato.
-- Menor tiempo operativo.
-- Base para decisiones asistidas.
+## Slide 4 - Valor de negocio
+- Menor time-to-market para cambios funcionales.
+- Mejor calidad de datos.
+- Menor riesgo operativo por control de acceso.
+- Base para escalamiento analitico.
 
 ## Slide 5 - Arquitectura
 ```mermaid
 flowchart LR
-  FE[Frontend Angular] --> API[ASP.NET Core API]
-  API --> PPL[People Module]
-  API --> IDN[Identity Module]
-  API --> AIM[AI Module]
+  FE[Angular] --> API[ASP.NET Core Api.Host]
+  API --> PPL[People]
+  API --> IDN[Identity]
+  API --> AIM[AI]
   PPL --> SQLP[(PeopleDb)]
   IDN --> SQLI[(IdentityDb)]
-  PPL --> REDIS[(Cache)]
+  PPL --> REDIS[(Redis opcional)]
   AIM --> OAI[OpenAI]
 ```
 
-## Slide 6 - Flujo de una operacion
+## Slide 6 - Flujo operativo
 ```mermaid
 sequenceDiagram
   participant U as Usuario
   participant API as API
   participant M as MediatR
+  participant V as Validation
   participant H as Handler
   participant DB as SQL
-  U->>API: Request + JWT
+
+  U->>API: HTTP + JWT
   API->>M: Command/Query
+  M->>V: Validacion
+  V-->>M: OK/Error
   M->>H: Ejecutar caso de uso
-  H->>DB: Persistencia/consulta
+  H->>DB: Persistir/consultar
   DB-->>H: Resultado
-  H-->>API: Result
-  API-->>U: Response
+  H-->>API: Response DTO
+  API-->>U: HTTP response
 ```
 
-## Slide 7 - Seguridad
-- JWT + roles.
-- People.Read: Admin, Manager, Viewer.
-- People.Write: Admin, Manager.
-- Attributes.Manage: Admin.
-- Pruebas automatizadas de autorizacion por rol.
+## Slide 7 - Cambios tecnicos recientes
+- Startup SQL resiliente (wait + retry + lock de migraciones).
+- Logging estructurado HTTP + CQRS.
+- Seed idempotente de catalogos, roles y admin.
+- Paginacion y filtros dinamicos consolidados en UI.
 
-## Slide 8 - Demo funcional
+## Slide 8 - Casos de uso cubiertos
+1. Alta/edicion/estado de personas.
+2. Gestion de definiciones de atributos.
+3. Carga de atributos por persona con reglas.
+4. Busqueda dinamica paginada.
+5. Normalizacion IA + score de riesgo.
+
+## Slide 9 - Seguridad
+- JWT Bearer.
+- Policies:
+  - People.Read: Admin/Manager/Viewer.
+  - People.Write: Admin/Manager.
+  - Attributes.Manage: Admin.
+- Pruebas de autorizacion por rol automatizadas.
+
+## Slide 10 - Calidad y confiabilidad
+- Unit tests: reglas y validadores.
+- Integration tests: auth, roles, people, attributes, IA.
+- CI valida backend y frontend en cada cambio.
+
+## Slide 11 - Demo sugerida
 1. Login.
 2. Crear persona.
 3. Cargar atributos.
-4. Buscar por filtros dinamicos.
-5. Ejecutar normalizacion IA.
-6. Ejecutar risk score.
+4. Buscar por `attr.condition_code`.
+5. Normalizar condicion.
+6. Calcular riesgo.
 
-## Slide 9 - Calidad y CI
-- Unit tests + Integration tests.
-- Pipeline GitHub Actions backend/frontend.
-- Reportes TRX para trazabilidad.
-
-## Slide 10 - Roadmap
-- Fase 1: hardening productivo.
+## Slide 12 - Roadmap
+- Fase 1: observabilidad y hardening productivo.
 - Fase 2: auditoria y permisos granulares.
-- Fase 3: madurez IA y metricas de calidad.
-- Fase 4: compliance y gobierno de datos.
+- Fase 3: madurez IA (fallback + metricas de calidad).
+- Fase 4: compliance y gobierno de datos sensibles.
 
-## Slide 11 - Riesgos y mitigaciones
-- Dependencias externas -> fallback y controles.
-- Cambios de negocio -> catalogo dinamico + pruebas.
-- Seguridad -> RBAC y pruebas de autorizacion.
-
-## Slide 12 - Cierre
-- Solucion lista para evolucion.
-- Base tecnica solida.
-- Siguiente paso: plan de despliegue y fase 1.
-
+## Slide 13 - Cierre
+- Plataforma funcional y escalable.
+- Arquitectura modular preparada para evolucion.
+- Propuesta de siguientes entregables priorizados.

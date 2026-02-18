@@ -44,10 +44,10 @@ jobs:
           docker compose --env-file "$ENV_FILE" -f deploy/docker-compose.local.yml build
           if grep -q '^NGROK_AUTHTOKEN=' "$ENV_FILE" && [ -n "$(grep '^NGROK_AUTHTOKEN=' "$ENV_FILE" | cut -d'=' -f2-)" ]; then
             echo "NGROK_AUTHTOKEN detected, enabling ngrok profile."
-            docker compose --env-file "$ENV_FILE" -f deploy/docker-compose.local.yml --profile ngrok up -d --remove-orphans
+            docker compose --env-file "$ENV_FILE" -f deploy/docker-compose.local.yml --profile ngrok up -d --wait --wait-timeout 300 --remove-orphans
           else
             echo "NGROK_AUTHTOKEN not set, deploying without ngrok."
-            docker compose --env-file "$ENV_FILE" -f deploy/docker-compose.local.yml up -d --remove-orphans
+            docker compose --env-file "$ENV_FILE" -f deploy/docker-compose.local.yml up -d --wait --wait-timeout 300 --remove-orphans
           fi
 
           docker ps

@@ -1,6 +1,7 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using System.Data;
+using System.Net.Sockets;
 
 namespace Api.Host.Seed;
 
@@ -91,6 +92,7 @@ internal static class SqlServerStartup
             InitialCatalog = "master"
         };
         csb.ConnectTimeout = Math.Min(csb.ConnectTimeout > 0 ? csb.ConnectTimeout : 15, 5);
+        logger.LogInformation("{DbLabel} waiting for SQL server at {DataSource}", dbLabel, csb.DataSource);
 
         const int maxAttempts = 30;
         Exception? lastException = null;
@@ -338,6 +340,18 @@ END CATCH
     private static bool IsTransient(SqlException ex)
     {
         if (ex.Message.Contains("pre-login handshake", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // DNS resolution can fail briefly while containers are still joining the compose network.
+        if (ex.Number == 11001)
+        {
+            return true;
+        }
+
+        if (ex.InnerException is SocketException socketEx &&
+            socketEx.SocketErrorCode is SocketError.HostNotFound or SocketError.TryAgain or SocketError.NoData)
         {
             return true;
         }

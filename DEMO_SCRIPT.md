@@ -1,77 +1,109 @@
 # Demo Script - Ficticia
 
-Guion operativo para demo de 15-20 minutos (cliente + tecnico).
+Guion de demo funcional y tecnico (15-20 minutos) alineado al estado actual del sistema.
 
 ## 1. Preparacion previa
-1. Backend levantado.
-2. Frontend levantado.
-3. SQL Server operativo.
-4. Usuario admin disponible:
-- `admin@ficticia.local`
-- `Admin123!`
+
+### Infraestructura
+1. Levantar SQL Server + Redis:
+```bash
+docker compose -f docker/docker-compose.yml up -d --wait --wait-timeout 180
+```
+2. Verificar backend arriba y Swagger disponible.
+3. Levantar frontend Angular.
+
+### Credenciales demo
+- Email: `admin@ficticia.local`
+- Password: `Admin123!`
+
+### Datos base esperados
+- Definiciones seed disponibles:
+  - `drives`
+  - `uses_glasses`
+  - `diabetic`
+  - `disease_text`
+  - `condition_code`
 
 ## 2. Agenda sugerida
-1. Introduccion (2 min).
-2. Flujo funcional principal (8-10 min).
-3. Seguridad por roles (3-4 min).
+
+1. Contexto del problema (2 min).
+2. Flujo operativo principal (8-10 min).
+3. Seguridad por roles (3 min).
 4. IA aplicada (3-4 min).
 5. Cierre y roadmap (2 min).
 
-## 3. Flujo funcional principal
+## 3. Flujo operativo principal
 
 ### Paso A - Login
-- Ejecutar login por API o UI.
-- Mostrar token y roles en respuesta.
-- Mensaje clave: acceso controlado por rol.
+- Iniciar sesion (UI o `POST /api/v1/auth/login`).
+- Mostrar que la respuesta incluye token + roles.
+- Mensaje clave: el acceso se controla por rol.
 
-### Paso B - Alta de persona
-- Crear una persona nueva.
-- Confirmar respuesta `200`.
-- Mostrar consulta por ID.
+### Paso B - Crear persona
+- Crear persona con documento unico.
+- Confirmar alta exitosa.
+- Consultar por ID para validar persistencia.
 
-### Paso C - Atributos dinamicos
-- Consultar formulario de atributos de la persona.
-- Cargar atributos (por ejemplo `condition_code`).
-- Mostrar validacion si el valor no esta permitido.
+### Paso C - Gestion de atributos
+- Cargar formulario de atributos de la persona.
+- Asignar valores (ej. `condition_code=diabetes`, `diabetic=true`).
+- Guardar y volver a consultar para verificar.
 
 ### Paso D - Busqueda dinamica
-- Buscar por filtros estaticos.
-- Buscar por filtro dinamico `attr.condition_code=diabetes`.
-- Mostrar que retorna la persona esperada.
+- Buscar por campos base (ej. documento).
+- Buscar por dinamico: `attr.condition_code=diabetes`.
+- Mostrar paginacion y total de resultados.
 
-## 4. Seguridad por roles
+## 4. Seguridad por roles (mini-demostracion)
 
 ### Viewer
-- Puede consultar personas.
-- No puede crear personas (`403`).
-- No puede gestionar definiciones (`403`).
+- `GET /people`: permitido.
+- `POST /people`: `403`.
+- `GET /attributes/definitions`: `403`.
 
 ### Manager
-- Puede crear/editar personas.
-- No puede gestionar definiciones (`403`).
+- `POST /people`: permitido.
+- `POST /attributes/definitions`: `403`.
 
 ### Admin
-- Acceso completo.
+- Acceso completo, incluida gestion de definiciones.
 
 ## 5. IA aplicada
 
 ### Normalizacion
-- Enviar texto libre a `/api/v1/ai/conditions/normalize`.
-- Mostrar salida normalizada.
+1. Enviar texto libre (ej. "Paciente con diabetes tipo 2").
+2. Llamar `POST /api/v1/ai/conditions/normalize`.
+3. Mostrar:
+- `code`
+- `confidence`
+- `matchedTerms`
+- `suggestedAttributes`
 
-### Risk score
-- Ejecutar `/api/v1/ai/people/{id}/risk-score`.
-- Mostrar score, banda y razones.
+### Scoring
+1. Seleccionar persona.
+2. Llamar `POST /api/v1/ai/people/{id}/risk-score`.
+3. Mostrar:
+- score numerico.
+- banda (`Low`, `Medium`, `High`).
+- razones en texto.
 
-## 6. Mensajes clave para cierre
-1. Plataforma modular y escalable.
-2. Seguridad y calidad integradas.
-3. IA desacoplada para evolucion controlada.
-4. Roadmap claro y fases de crecimiento.
+## 6. Casos de error para mostrar robustez
 
-## 7. Plan B (si algo falla en vivo)
-1. Usar ejemplos pre-cargados.
-2. Mostrar pruebas automatizadas ejecutadas.
-3. Mostrar endpoints por Swagger con respuestas esperadas.
-4. Continuar con arquitectura y roadmap.
+1. Crear persona invalida -> `400 Validation error`.
+2. Documento duplicado -> `409 people.duplicate_identification`.
+3. Filtro dinamico invalido -> `400 filters.invalid`.
+4. Risk score de persona inexistente -> `400 ai.person_not_found`.
 
+## 7. Mensajes clave de cierre
+
+1. El modelo de datos es flexible por atributos dinamicos.
+2. Seguridad y calidad estan integradas en el core.
+3. La IA esta encapsulada y puede evolucionar sin romper el dominio.
+4. Hay cobertura automatizada para los casos criticos de negocio.
+
+## 8. Plan B si algo falla en vivo
+
+1. Ejecutar demo en Swagger con ejemplos predefinidos.
+2. Mostrar pruebas de integracion equivalentes al caso fallido.
+3. Explicar arquitectura y observabilidad con logs estructurados.
+4. Cerrar con roadmap y proximo sprint.

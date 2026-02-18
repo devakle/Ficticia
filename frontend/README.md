@@ -1,59 +1,70 @@
-# Frontend
+# Frontend Ficticia (Angular)
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.1.4.
+Aplicacion de administracion para operar personas, atributos dinamicos y flujo IA sobre la API de Ficticia.
 
-## Development server
+## 1. Requisitos
 
-To start a local development server, run:
+- Node `>= 20.19.0`
+- npm `11.x`
+- Backend `Api.Host` ejecutandose y accesible desde navegador.
 
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## 2. Ejecutar en local
 
 ```bash
-ng generate component component-name
+npm ci
+npm start
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+La app queda disponible en `http://localhost:4200`.
 
-```bash
-ng generate --help
-```
+## 3. Configuracion en runtime
 
-## Building
+La URL base de la API se carga desde la UI (campo `apiBaseUrl`).
 
-To build the project run:
+Valores tipicos:
+- `http://localhost:5000`
+- `https://localhost:5001`
 
-```bash
-ng build
-```
+Credenciales de desarrollo por defecto:
+- `admin@ficticia.local`
+- `Admin123!`
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+## 4. Funcionalidades principales
 
-## Running unit tests
+### 4.1 Autenticacion
+- Login contra `POST /api/v1/auth/login`.
+- Token Bearer almacenado en `localStorage` (`admin_token`).
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+### 4.2 Personas
+- Buscar personas con filtros base y dinamicos.
+- Paginacion de resultados (`page`, `pageSize`).
+- Crear, actualizar y cambiar estado activo/inactivo.
 
-```bash
-ng test
-```
+### 4.3 Atributos dinamicos
+- Listar, crear y actualizar definiciones.
+- Editar reglas de validacion de cada definicion.
+- Cargar/guardar atributos para la persona seleccionada.
 
-## Running end-to-end tests
+### 4.4 IA
+- Normalizar condicion medica desde texto libre.
+- Aplicar atributos sugeridos por la normalizacion.
+- Calcular score de riesgo de la persona seleccionada.
 
-For end-to-end (e2e) testing, run:
+## 5. Servicios por dominio
 
-```bash
-ng e2e
-```
+- `src/app/core/services/auth-api.service.ts`
+- `src/app/features/people/services/people-api.service.ts`
+- `src/app/features/attributes/services/attributes-api.service.ts`
+- `src/app/features/ai/services/ai-api.service.ts`
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+## 6. Scripts
 
-## Additional Resources
+- `npm start`: `ng serve`
+- `npm run build`: build produccion
+- `npm test`: tests unitarios (`ng test`)
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+## 7. Notas de integracion
+
+- La app asume que backend ya esta autenticando por JWT y aplicando RBAC.
+- Los filtros dinamicos se envian en formato `attr.<key>=<value>`.
+- El frontend normaliza datos de paginacion para tolerar variantes de casing en respuesta (`items`/`Items`, etc.).

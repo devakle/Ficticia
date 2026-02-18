@@ -1,66 +1,91 @@
 # Ficticia - Documento para Cliente
 
 ## 1. Que es Ficticia
-Ficticia es una plataforma para gestionar personas, sus atributos de negocio y capacidades de IA para estandarizar informacion y estimar riesgo.
 
-## 2. Problema que resuelve
-- Datos dispersos e inconsistentes de personas.
-- Dificultad para agregar nuevos campos sin cambios costosos.
-- Decisiones lentas por falta de estandarizacion.
+Ficticia es una plataforma para operar el ciclo completo de gestion de personas, con:
+- datos base de persona.
+- atributos de negocio configurables sin rehacer el sistema.
+- IA para normalizar condiciones y calcular riesgo.
+- seguridad por roles para controlar quien ve y quien modifica.
 
-## 3. Solucion propuesta
-- Gestion centralizada de personas.
-- Atributos dinamicos configurables (sin rediseñar todo el sistema).
-- IA para:
-- normalizar condiciones desde texto libre.
-- calcular score de riesgo con razones.
-- Seguridad por roles (Admin, Manager, Viewer).
+## 2. Problemas que resuelve
 
-## 4. Beneficios para el negocio
-- Menor time-to-market para nuevos requerimientos.
-- Mejor calidad de dato.
-- Mayor velocidad de evaluacion.
-- Escalabilidad funcional sin rehacer la plataforma.
+- Informacion de personas dispersa o inconsistente.
+- Alta dependencia de desarrollo para agregar nuevos campos.
+- Procesos manuales lentos para analisis y evaluacion de riesgo.
+- Riesgo operativo por falta de controles de acceso claros.
 
-## 5. Modulos funcionales
-- Personas: alta, edicion, estado, busqueda.
-- Atributos: definicion de catalogo y carga de valores.
-- IA: normalizacion de condiciones y scoring.
-- Seguridad: login, JWT y permisos por rol.
+## 3. Solucion entregada
 
-## 6. Casos de uso claves
-1. Alta de persona y gestion de su informacion base.
-2. Carga de atributos medicos y administrativos.
-3. Busqueda avanzada por filtros dinamicos.
-4. Estandarizacion de condiciones medicas desde texto.
-5. Score de riesgo para apoyo a decisiones.
+### Nucleo operativo
+- Alta, actualizacion y activacion/inactivacion de personas.
+- Busqueda combinando filtros fijos y dinamicos.
 
-## 7. Seguridad y gobierno
-- Acceso autenticado con token.
+### Flexibilidad de negocio
+- Catalogo de atributos configurable (tipo, reglas, estado, filtro).
+- Carga de atributos por persona con validaciones automaticas.
+
+### IA aplicada
+- Normalizacion de texto libre a condicion estandar.
+- Score de riesgo con banda y razones.
+
+### Seguridad
+- Login con token.
 - Permisos por rol:
-- Viewer: consulta.
-- Manager: consulta y operacion sobre personas.
-- Admin: administracion completa (incluye catalogos).
+  - Viewer: solo lectura.
+  - Manager: operacion de personas.
+  - Admin: control total (incluye catalogos).
 
-## 8. Calidad y confiabilidad
-- Pruebas unitarias e integracion automatizadas.
-- Pipeline de CI para validar backend y frontend.
-- Validaciones de negocio en API para evitar datos invalidos.
+## 4. Casos de uso cubiertos
 
-## 9. Roadmap ejecutivo
-### Fase 1
-- Endurecimiento productivo, observabilidad y monitoreo.
-### Fase 2
-- Auditoria, permisos mas granulares y mas filtros avanzados.
-### Fase 3
-- IA con medicion continua de calidad y mejoras de precision.
-### Fase 4
-- Compliance y gobierno de datos sensibles.
+1. Registrar una nueva persona y consultarla.
+2. Editar datos y cambiar estado activo/inactivo.
+3. Definir nuevos atributos de negocio (ej. medico, administrativo, comercial).
+4. Cargar atributos por persona con validacion de reglas.
+5. Buscar personas por filtros avanzados (incluyendo atributos dinamicos).
+6. Normalizar una condicion desde texto libre.
+7. Calcular riesgo de una persona para apoyo a decision.
 
-## 10. Propuesta de presentacion al cliente
-1. Contexto del problema.
-2. Demo funcional de flujo principal.
-3. Seguridad y control de acceso.
-4. Roadmap y tiempos estimados.
-5. Proximos pasos y alcance de la siguiente fase.
+## 5. Valor para el negocio
 
+- Menor tiempo para adaptar el sistema a nuevos requerimientos.
+- Mejor calidad de datos por validaciones centralizadas.
+- Mayor trazabilidad y control de acceso.
+- Base escalable para automatizacion y analitica avanzada.
+
+## 6. Confiabilidad de la solucion
+
+- Pruebas automatizadas para auth, permisos, people, atributos e IA.
+- Integracion continua que valida backend y frontend en cada cambio.
+- Arranque robusto del sistema aun en escenarios de inicio concurrente.
+
+## 7. Cambios destacados de esta version
+
+- Se robustecio el arranque contra SQL Server (espera activa, retries y lock de migraciones).
+- Se estandarizo el logging para trazabilidad de requests y casos CQRS.
+- Se reforzo la inicializacion de catalogos, roles y usuario admin.
+- Se consolidaron busqueda paginada y filtros dinamicos en UI.
+
+## 8. Alcance cubierto hoy
+
+### Incluido
+- Operacion completa de personas.
+- Atributos dinamicos con reglas.
+- Seguridad por roles.
+- Integracion IA para normalizacion y score.
+
+### Siguiente etapa recomendada
+1. Observabilidad avanzada y tableros operativos.
+2. Auditoria de cambios y reportes de cumplimiento.
+3. Flujo IA con fallback y metricas de calidad por entorno.
+4. Endurecimiento de seguridad para produccion (secretos, hardening, compliance).
+
+## 9. Demo ejecutiva sugerida (10-15 min)
+
+1. Login.
+2. Alta de persona.
+3. Carga de atributos.
+4. Busqueda con filtro dinamico.
+5. Normalizacion IA.
+6. Score de riesgo.
+7. Cierre con roadmap.
