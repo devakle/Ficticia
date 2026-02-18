@@ -14,134 +14,195 @@ using Microsoft.OpenApi;
 using Modules.AI.Infrastructure;
 using Modules.AI.Application.Conditions.Commands;
 using MediatR;
+using Serilog;
+using Serilog.Sinks.SystemConsole.Themes;
 
-var builder = WebApplication.CreateBuilder(args);
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console(
+        outputTemplate: "[{Timestamp:HH:mm:ss.fff} {Level:u3}] [{Component}] [{TraceId}] {SourceContext} {Message:lj}{NewLine}{Exception}",
+        theme: AnsiConsoleTheme.Literate,
+        applyThemeToRedirectedOutput: true)
+    .CreateBootstrapLogger();
 
-builder.Services.AddAiModule(builder.Configuration);
-
-builder.Services.AddMediatR(cfg =>
+try
 {
-    cfg.RegisterServicesFromAssembly(typeof(NormalizeConditionCommand).Assembly);
-});
+    var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+    builder.Host.UseSerilog((context, services, loggerConfiguration) => loggerConfiguration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext()
+        .Enrich.WithProperty("Application", "Ficticia.Api.Host"));
 
-// Identity Db
-builder.Services.AddDbContext<IdentityDbContext>(opt =>
-    opt.UseSqlServer(builder.Configuration.GetConnectionString("IdentityDb")));
+    builder.Services.AddAiModule(builder.Configuration);
 
-// Identity Core
-builder.Services
-    .AddIdentityCore<IdentityUser>(opt =>
+    builder.Services.AddMediatR(cfg =>
     {
-        opt.Password.RequiredLength = 8;
-        opt.Password.RequireDigit = true;
-        opt.Password.RequireUppercase = true;
-        opt.Password.RequireLowercase = true;
-        opt.Password.RequireNonAlphanumeric = false;
-    })
-    .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<IdentityDbContext>()
-    .AddSignInManager();
+        cfg.RegisterServicesFromAssembly(typeof(NormalizeConditionCommand).Assembly);
+    });
 
-// JWT Auth
-var jwt = builder.Configuration.GetSection("Jwt");
-var jwtIssuer = jwt["Issuer"] ?? "Ficticia.Api";
-var jwtAudience = jwt["Audience"] ?? "Ficticia.Web";
-var jwtKey = jwt["Key"] ?? throw new InvalidOperationException("Jwt:Key is required.");
-var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
+    builder.Services.AddControllers();
 
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(opt =>
-    {
-        opt.TokenValidationParameters = new TokenValidationParameters
+    // Identity Db
+    builder.Services.AddDbContext<IdentityDbContext>(opt =>
+        opt.UseSqlServer(builder.Configuration.GetConnectionString("IdentityDb")));
+
+    // Identity Core
+    builder.Services
+        .AddIdentityCore<IdentityUser>(opt =>
         {
-            ValidateIssuer = true,
-            ValidIssuer = jwtIssuer,
+            opt.Password.RequiredLength = 8;
+            opt.Password.RequireDigit = true;
+            opt.Password.RequireUppercase = true;
+            opt.Password.RequireLowercase = true;
+            opt.Password.RequireNonAlphanumeric = false;
+        })
+        .AddRoles<IdentityRole>()
+        .AddEntityFrameworkStores<IdentityDbContext>()
+        .AddSignInManager();
 
-            ValidateAudience = true,
-            ValidAudience = jwtAudience,
+    // JWT Auth
+    var jwt = builder.Configuration.GetSection("Jwt");
+    var jwtIssuer = jwt["Issuer"] ?? "Ficticia.Api";
+    var jwtAudience = jwt["Audience"] ?? "Ficticia.Web";
+    var jwtKey = jwt["Key"] ?? throw new InvalidOperationException("Jwt:Key is required.");
+    var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
 
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
+    builder.Services
+        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(opt =>
+        {
+            opt.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = jwtIssuer,
 
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromSeconds(30)
+                ValidateAudience = true,
+                ValidAudience = jwtAudience,
+
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
+
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromSeconds(30)
+            };
+        });
+
+    builder.Services.AddAuthorization(opt =>
+    {
+        // Roles (ejemplo)
+        opt.AddPolicy("People.Read", p => p.RequireRole("Admin", "Manager", "Viewer"));
+        opt.AddPolicy("People.Write", p => p.RequireRole("Admin", "Manager"));
+        opt.AddPolicy("Attributes.Manage", p => p.RequireRole("Admin"));
+    });
+
+    // Swagger
+    builder.Services.AddEndpointsApiExplorer();
+
+    builder.Services.AddSwaggerGen(c =>
+    {
+        c.SwaggerDoc("v1", new OpenApiInfo { Title = "Ficticia API", Version = "v1" });
+
+        var scheme = new OpenApiSecurityScheme
+        {
+            Name = "Authorization",
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            In = ParameterLocation.Header,
+            Description = "JWT Authorization header using the Bearer scheme."
         };
+
+        c.AddSecurityDefinition("Bearer", scheme);
+
+        c.AddSecurityRequirement(doc => new OpenApiSecurityRequirement
+        {
+            { new OpenApiSecuritySchemeReference("Bearer", doc, null), new List<string>() }
+        });
     });
 
-builder.Services.AddAuthorization(opt =>
-{
-    // Roles (ejemplo)
-    opt.AddPolicy("People.Read", p => p.RequireRole("Admin", "Manager", "Viewer"));
-    opt.AddPolicy("People.Write", p => p.RequireRole("Admin", "Manager"));
-    opt.AddPolicy("Attributes.Manage", p => p.RequireRole("Admin"));
-});
 
-// Swagger
-builder.Services.AddEndpointsApiExplorer();
+    // BuildingBlocks (middlewares + validation pipeline)
+    builder.Services.AddBuildingBlocks();
 
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Ficticia API", Version = "v1" });
-
-    var scheme = new OpenApiSecurityScheme
+    // Redis opcional
+    var redisConnection = builder.Configuration.GetValue<string>("Redis:ConnectionString");
+    if (!string.IsNullOrWhiteSpace(redisConnection))
     {
-        Name = "Authorization",
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Description = "JWT Authorization header using the Bearer scheme."
-    };
+        builder.Services.AddStackExchangeRedisCache(opt => opt.Configuration = redisConnection);
+    }
 
-    c.AddSecurityDefinition("Bearer", scheme);
+    // People module (DbContext + repos + UoW + cache)
+    builder.Services.AddPeopleModule(builder.Configuration);
 
-    c.AddSecurityRequirement(doc => new OpenApiSecurityRequirement
+    // MediatR: escanear handlers People
+    builder.Services.AddMediatR(cfg =>
     {
-        { new OpenApiSecuritySchemeReference("Bearer", doc, null), new List<string>() }
+        cfg.RegisterServicesFromAssembly(typeof(CreatePersonCommand).Assembly);
     });
-});
 
+    // Validators: escanear validators People
+    builder.Services.AddValidatorsFromAssembly(typeof(Modules.People.Application.Validators.CreatePersonValidator).Assembly);
 
-// BuildingBlocks (middlewares + validation pipeline)
-builder.Services.AddBuildingBlocks();
+    var app = builder.Build();
 
-// Redis opcional
-var redisConnection = builder.Configuration.GetValue<string>("Redis:ConnectionString");
-if (!string.IsNullOrWhiteSpace(redisConnection))
+    await WaitForSqlServerAtStartupAsync(app.Services);
+
+    // Seed DB (tolerant to concurrent create races in debug/demo environments)
+    await RunSeedStepAsync("People", () => Api.Host.Seed.SeedPeopleDefaults.SeedAsync(app.Services));
+    await RunSeedStepAsync("Identity", () => Api.Host.Seed.SeedIdentityDefaults.SeedAsync(app.Services));
+
+    app.UseSwagger();
+    app.UseSwaggerUI();
+
+    app.UseMiddleware<RequestLoggingMiddleware>();
+
+    app.UseMiddleware<ExceptionMiddleware>();
+
+    app.UseAuthentication();
+    app.UseAuthorization();
+
+    app.MapControllers();
+
+    app.Run();
+}
+catch (Exception ex)
 {
-    builder.Services.AddStackExchangeRedisCache(opt => opt.Configuration = redisConnection);
+    Log.Fatal(ex, "Host terminated unexpectedly");
+    throw;
+}
+finally
+{
+    await Log.CloseAndFlushAsync();
 }
 
-// People module (DbContext + repos + UoW + cache)
-builder.Services.AddPeopleModule(builder.Configuration);
-
-// MediatR: escanear handlers People
-builder.Services.AddMediatR(cfg =>
+static async Task RunSeedStepAsync(string stepName, Func<Task> action)
 {
-    cfg.RegisterServicesFromAssembly(typeof(CreatePersonCommand).Assembly);
-});
+    try
+    {
+        await action();
+    }
+    catch (Exception ex) when (IsDatabaseAlreadyExists(ex))
+    {
+        Log.Warning(ex, "SEED {StepName}: database already exists (1801), continuing startup", stepName);
+    }
+}
 
-// Validators: escanear validators People
-builder.Services.AddValidatorsFromAssembly(typeof(Modules.People.Application.Validators.CreatePersonValidator).Assembly);
+static bool IsDatabaseAlreadyExists(Exception ex)
+{
+    return Api.Host.Seed.SqlServerStartup.IsDatabaseAlreadyExists(ex);
+}
 
-var app = builder.Build();
+static async Task WaitForSqlServerAtStartupAsync(IServiceProvider services)
+{
+    using var scope = services.CreateScope();
+    var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+    var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
+    var logger = loggerFactory.CreateLogger("Startup.Sql");
 
-// Seed DB
-await Api.Host.Seed.SeedPeopleDefaults.SeedAsync(app.Services);
-await Api.Host.Seed.SeedIdentityDefaults.SeedAsync(app.Services);
+    var peopleCs = configuration.GetConnectionString("PeopleDb");
+    var identityCs = configuration.GetConnectionString("IdentityDb");
 
-app.UseSwagger();
-app.UseSwaggerUI();
-
-app.UseMiddleware<RequestLoggingMiddleware>();
-app.UseMiddleware<ExceptionMiddleware>();
-
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapControllers();
-
-app.Run();
+    await Api.Host.Seed.SqlServerStartup.WaitUntilServerReadyAsync(peopleCs, "PeopleDb", logger);
+    await Api.Host.Seed.SqlServerStartup.WaitUntilServerReadyAsync(identityCs, "IdentityDb", logger);
+}
