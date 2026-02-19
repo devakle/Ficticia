@@ -1,7 +1,7 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { NormalizeConditionResponseDto, RiskScoreResponseDto } from '../../../core/models/domain.models';
+import { NormalizeConditionResponseDto } from '../../../core/models/domain.models';
 
 @Injectable({ providedIn: 'root' })
 export class AiApiService {
@@ -12,11 +12,6 @@ export class AiApiService {
     return firstValueFrom(
       this.http.post<NormalizeConditionResponseDto>(url, { text }, { headers: this.authHeaders(token) })
     );
-  }
-
-  async scorePersonRisk(apiBaseUrl: string, token: string, personId: string): Promise<RiskScoreResponseDto> {
-    const url = `${apiBaseUrl}/api/v1/ai/people/${personId}/risk-score`;
-    return firstValueFrom(this.http.post<RiskScoreResponseDto>(url, {}, { headers: this.authHeaders(token) }));
   }
 
   private authHeaders(token: string): HttpHeaders {

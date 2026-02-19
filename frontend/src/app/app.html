@@ -486,19 +486,10 @@
   <section class="panel">
     <h2>Herramientas de IA</h2>
 
-    <div class="grid two">
-      <label class="span-two">
-        Texto de condición
-        <input [(ngModel)]="conditionText" placeholder="ej. diabético con hipertensión crónica" />
-      </label>
-    </div>
-
     <div class="actions split">
-      <button type="button" class="secondary" (click)="normalizeCondition()" [disabled]="busy || !token">Normalizar condición</button>
       <button type="button" class="secondary" (click)="applySuggestedAttributes()" [disabled]="busy || !token || !normalizedCondition || !selectedPerson">
         Aplicar atributos sugeridos
       </button>
-      <button type="button" (click)="scoreSelectedPersonRisk()" [disabled]="busy || !token || !selectedPerson">Calcular riesgo de la persona seleccionada</button>
     </div>
 
     @if (normalizedCondition) {
@@ -536,36 +527,6 @@
       </div>
     }
 
-    @if (riskScore) {
-      <div
-        class="ai-card risk-card"
-        [class.risk-low]="isRiskBand(riskScore.band, 'low')"
-        [class.risk-medium]="isRiskBand(riskScore.band, 'medium')"
-        [class.risk-high]="isRiskBand(riskScore.band, 'high')"
-      >
-        <h3>Puntaje de Riesgo</h3>
-        <p class="hint risk-summary">
-          <strong>{{ riskScore.score }}</strong>
-          <span
-            class="risk-badge"
-            [class.risk-low]="isRiskBand(riskScore.band, 'low')"
-            [class.risk-medium]="isRiskBand(riskScore.band, 'medium')"
-            [class.risk-high]="isRiskBand(riskScore.band, 'high')"
-          >
-            {{ riskBandLabel(riskScore.band) }}
-          </span>
-        </p>
-        @if ((riskScore.reasons ?? []).length) {
-          <ul class="reason-list">
-            @for (reason of (riskScore.reasons ?? []); track reason) {
-              <li>{{ reason }}</li>
-            }
-          </ul>
-        } @else {
-          <p class="hint">No se devolvieron razones.</p>
-        }
-      </div>
-    }
   </section>
 
   <section class="panel">
@@ -593,7 +554,31 @@
             }
 
             @if (attr.dataType === 2 || attr.dataType === 5) {
-              <input [(ngModel)]="attr.stringValue" />
+              @if (attr.key === 'condition_code') {
+                <div class="input-with-ai">
+                  <input [(ngModel)]="attr.stringValue" placeholder="Escribe condición y normaliza con IA" />
+                  <button
+                    type="button"
+                    class="ai-inline-button"
+                    (click)="normalizeConditionFromAttributes()"
+                    [disabled]="busy || !token || !canNormalizeConditionFromAttributes"
+                    title="Normalizar condición con IA"
+                    aria-label="Normalizar condición con IA"
+                  >
+                    <span class="ai-inline-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" focusable="false">
+                        <path d="M12 2l2.2 3.9L18 8l-3.8 2.1L12 14l-2.2-3.9L6 8l3.8-2.1L12 2z" fill="currentColor" />
+                        <circle cx="18.5" cy="17.5" r="3.5" stroke="currentColor" stroke-width="1.8" />
+                        <path d="M17 17.5h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                        <path d="M18.5 16v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                      </svg>
+                    </span>
+                    <span>IA</span>
+                  </button>
+                </div>
+              } @else {
+                <input [(ngModel)]="attr.stringValue" />
+              }
             }
 
             @if (attr.dataType === 3) {

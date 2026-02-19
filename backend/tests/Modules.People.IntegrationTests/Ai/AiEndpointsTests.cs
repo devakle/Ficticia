@@ -8,7 +8,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Modules.AI.Application.Abstractions;
 using Modules.AI.Application.Abstractions.Models;
-using Modules.AI.Contracts.Dtos;
 using Modules.People.Contracts.Dtos;
 using Xunit;
 
@@ -27,8 +26,7 @@ public sealed class AiEndpointsTests
     {
         using var factory = new AiTestWebApplicationFactory(
             _sql.ConnectionString,
-            new FakeConditionNormalizer((_, _) => Task.FromResult(SuccessCondition())),
-            new FakeRiskScorer((_, _) => Task.FromResult(new RiskScore(20, RiskBand.Low, new[] { "ok" }))));
+            new FakeConditionNormalizer((_, _) => Task.FromResult(SuccessCondition())));
 
         using var client = factory.CreateClient();
 
@@ -41,8 +39,7 @@ public sealed class AiEndpointsTests
     {
         using var factory = new AiTestWebApplicationFactory(
             _sql.ConnectionString,
-            new FakeConditionNormalizer((_, _) => Task.FromResult(SuccessCondition())),
-            new FakeRiskScorer((_, _) => Task.FromResult(new RiskScore(20, RiskBand.Low, new[] { "ok" }))));
+            new FakeConditionNormalizer((_, _) => Task.FromResult(SuccessCondition())));
 
         using var client = factory.CreateClient();
         var token = await client.LoginAsAdminAsync();
@@ -61,8 +58,7 @@ public sealed class AiEndpointsTests
     {
         using var factory = new AiTestWebApplicationFactory(
             _sql.ConnectionString,
-            new FakeConditionNormalizer((_, _) => throw new InvalidOperationException("provider down")),
-            new FakeRiskScorer((_, _) => Task.FromResult(new RiskScore(20, RiskBand.Low, new[] { "ok" }))));
+            new FakeConditionNormalizer((_, _) => throw new InvalidOperationException("provider down")));
 
         using var client = factory.CreateClient();
         var token = await client.LoginAsAdminAsync();
@@ -73,46 +69,6 @@ public sealed class AiEndpointsTests
 
         using var body = await resp.ReadJsonAsync();
         Assert.Equal("ai.provider_failed", body.RootElement.GetProperty("code").GetString());
-    }
-
-    [Fact]
-    public async Task Risk_score_should_return_ok_when_provider_succeeds()
-    {
-        using var factory = new AiTestWebApplicationFactory(
-            _sql.ConnectionString,
-            new FakeConditionNormalizer((_, _) => Task.FromResult(SuccessCondition())),
-            new FakeRiskScorer((personId, _) => Task.FromResult(new RiskScore(65, RiskBand.Medium, new[] { personId.ToString() }))));
-
-        using var client = factory.CreateClient();
-        var token = await client.LoginAsAdminAsync();
-        client.SetBearer(token);
-
-        var personId = await client.CreatePersonAsync();
-        var resp = await client.PostAsync($"/api/v1/ai/people/{personId}/risk-score", content: null);
-        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
-
-        using var body = await resp.ReadJsonAsync();
-        Assert.Equal(65, body.RootElement.GetProperty("score").GetInt32());
-        Assert.Equal((int)RiskBand.Medium, body.RootElement.GetProperty("band").GetInt32());
-    }
-
-    [Fact]
-    public async Task Risk_score_should_return_bad_request_when_person_does_not_exist()
-    {
-        using var factory = new AiTestWebApplicationFactory(
-            _sql.ConnectionString,
-            new FakeConditionNormalizer((_, _) => Task.FromResult(SuccessCondition())),
-            new FakeRiskScorer((_, _) => throw new KeyNotFoundException()));
-
-        using var client = factory.CreateClient();
-        var token = await client.LoginAsAdminAsync();
-        client.SetBearer(token);
-
-        var resp = await client.PostAsync($"/api/v1/ai/people/{Guid.NewGuid()}/risk-score", content: null);
-        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
-
-        using var body = await resp.ReadJsonAsync();
-        Assert.Equal("ai.person_not_found", body.RootElement.GetProperty("code").GetString());
     }
 
     private static NormalizedCondition SuccessCondition()
@@ -136,34 +92,19 @@ public sealed class AiEndpointsTests
         public Task<NormalizedCondition> NormalizeAsync(string text, CancellationToken ct) => _impl(text, ct);
     }
 
-    private sealed class FakeRiskScorer : IRiskScorer
-    {
-        private readonly Func<Guid, CancellationToken, Task<RiskScore>> _impl;
-
-        public FakeRiskScorer(Func<Guid, CancellationToken, Task<RiskScore>> impl)
-        {
-            _impl = impl;
-        }
-
-        public Task<RiskScore> ScorePersonAsync(Guid personId, CancellationToken ct) => _impl(personId, ct);
-    }
-
     private sealed class AiTestWebApplicationFactory : WebApplicationFactory<Program>
     {
         private readonly string _peopleDb;
         private readonly string _identityDb;
         private readonly IConditionNormalizer _normalizer;
-        private readonly IRiskScorer _riskScorer;
 
         public AiTestWebApplicationFactory(
             string baseConn,
-            IConditionNormalizer normalizer,
-            IRiskScorer riskScorer)
+            IConditionNormalizer normalizer)
         {
             _peopleDb = baseConn.Replace("Database=master", "Database=FicticiaPeople_Test");
             _identityDb = baseConn.Replace("Database=master", "Database=FicticiaIdentity_Test");
             _normalizer = normalizer;
-            _riskScorer = riskScorer;
         }
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -181,9 +122,7 @@ public sealed class AiEndpointsTests
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll<IConditionNormalizer>();
-                services.RemoveAll<IRiskScorer>();
                 services.AddScoped(_ => _normalizer);
-                services.AddScoped(_ => _riskScorer);
             });
         }
     }

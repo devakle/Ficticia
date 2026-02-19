@@ -2,7 +2,6 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Modules.AI.Application.Conditions.Commands;
-using Modules.AI.Application.PeopleRisk.Commands;
 using Modules.AI.Contracts.Dtos;
 
 namespace Api.Host.Controllers;
@@ -19,16 +18,6 @@ public sealed class AiController : ControllerBase
         [FromServices] IMediator mediator)
     {
         var res = await mediator.Send(new NormalizeConditionCommand(req.Text));
-        return res.IsSuccess ? Ok(res.Value) : BadRequest(res.Error);
-    }
-
-    [Authorize(Policy = "People.Read")]
-    [HttpPost("people/{personId:guid}/risk-score")]
-    public async Task<ActionResult<RiskScoreResponseDto>> ScoreRisk(
-        Guid personId,
-        [FromServices] IMediator mediator)
-    {
-        var res = await mediator.Send(new ScorePersonRiskCommand(personId));
         return res.IsSuccess ? Ok(res.Value) : BadRequest(res.Error);
     }
 }

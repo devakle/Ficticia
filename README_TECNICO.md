@@ -170,20 +170,11 @@ Paginacion:
   - normaliza code en lowercase.
   - si confianza >= threshold, sugiere `condition_code`.
 
-### 7.2 Scoring
-- Handler: `ScorePersonRiskHandler`.
-- Servicio: `OpenAiRiskScorer`.
-- Flujo:
-  - obtiene `PersonRiskFeatures` desde People.
-  - llama OpenAI con schema `{score, band, reasons}`.
-  - mapea banda Low/Medium/High.
-
-### 7.3 Errores AI
+### 7.2 Errores AI
 - `ai.invalid_input`
 - `ai.provider_failed`
-- `ai.person_not_found`
 
-### 7.4 Observacion tecnica
+### 7.3 Observacion tecnica
 - Existe implementacion de `DictionaryFallback(...)` en normalizador, pero actualmente no se invoca en la ruta principal.
 
 ## 8. Configuracion por ambiente
@@ -196,8 +187,6 @@ Paginacion:
   - `Jwt:Issuer`, `Jwt:Audience`, `Jwt:Key`, `Jwt:ExpiresMinutes`
 - OpenAI:
   - `OpenAI:ApiKey`, `OpenAI:BaseUrl`, `OpenAI:Model`, `OpenAI:ConfidenceThreshold`
-- Risk:
-  - `RiskRules:*`
 - Redis opcional:
   - `Redis:ConnectionString`
 
@@ -212,7 +201,7 @@ Paginacion:
 - Catalogo de definiciones y edicion de reglas.
 - Edicion de atributos por persona.
 - Filtros dinamicos tipados y paginacion visual (incluye ellipsis).
-- Normalizacion IA y score de riesgo sobre persona seleccionada.
+- Normalizacion IA sobre persona seleccionada.
 
 ### 9.2 Integracion API
 - Servicios por dominio:

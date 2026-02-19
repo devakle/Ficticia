@@ -2,6 +2,18 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "prepare-api-debug",
+      "dependsOrder": "sequence",
+      "dependsOn": ["docker-up-wait-sql", "build-api-host"],
+      "problemMatcher": []
+    },
+    {
+      "label": "build-api-host",
+      "type": "shell",
+      "command": "dotnet build backend/src/Api.Host/Api.Host.csproj",
+      "problemMatcher": "$msCompile"
+    },
+    {
       "label": "docker-up",
       "type": "shell",
       "command": "docker compose -f docker/docker-compose.yml up -d --wait --wait-timeout 180",
@@ -18,7 +30,14 @@
       "type": "shell",
       "command": "docker compose -f docker/docker-compose.yml down",
       "problemMatcher": []
+    },
+    {
+      "type": "npm",
+      "script": "start",
+      "path": "frontend",
+      "problemMatcher": [],
+      "label": "npm: start - frontend",
+      "detail": "ng serve"
     }
   ]
 }
-  

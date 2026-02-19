@@ -58,12 +58,6 @@ export interface NormalizeConditionResponseDto {
   source: string;
 }
 
-export interface RiskScoreResponseDto {
-  score: number;
-  band: string | number;
-  reasons: string[] | null | undefined;
-}
-
 export interface DynamicFilterInput {
   key: string;
   value: string | number | null;

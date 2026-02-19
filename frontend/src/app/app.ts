@@ -9,7 +9,6 @@ import {
   NormalizeConditionResponseDto,
   PersonAttributeFormItemDto,
   PersonDto,
-  RiskScoreResponseDto,
   UpsertAttributeValueDto,
   ValidationRulesDraft
 } from './core/models/domain.models';
@@ -18,7 +17,6 @@ import { ErrorMessageService } from './core/services/error-message.service';
 import { ThemeService } from './core/services/theme.service';
 import { ToastService } from './core/services/toast.service';
 import { AiApiService } from './features/ai/services/ai-api.service';
-import { RiskBandService } from './features/ai/services/risk-band.service';
 import { AttributesApiService } from './features/attributes/services/attributes-api.service';
 import { ValidationRulesService } from './features/attributes/services/validation-rules.service';
 import { PeopleApiService } from './features/people/services/people-api.service';
@@ -49,7 +47,6 @@ export class App {
   private readonly peopleApi = inject(PeopleApiService);
   private readonly attributesApi = inject(AttributesApiService);
   private readonly aiApi = inject(AiApiService);
-  private readonly riskBand = inject(RiskBandService);
   private readonly validationRules = inject(ValidationRulesService);
   private readonly toast = inject(ToastService);
   private readonly errorMessage = inject(ErrorMessageService);
@@ -138,9 +135,7 @@ export class App {
   definitionRulesDrafts: Record<string, ValidationRulesDraft> = {};
 
   personAttributes: PersonAttributeFormItemDto[] = [];
-  conditionText = '';
   normalizedCondition: NormalizeConditionResponseDto | null = null;
-  riskScore: RiskScoreResponseDto | null = null;
 
   @HostBinding('class.dark-theme')
   get isDarkTheme(): boolean {
@@ -166,6 +161,10 @@ export class App {
 
   get hasAttributesManageAccess(): boolean {
     return this.hasRole('Admin');
+  }
+
+  get canNormalizeConditionFromAttributes(): boolean {
+    return this.findPersonAttribute('condition_code') !== null;
   }
 
   async loginAsDemo(credential: DemoCredential): Promise<void> {
@@ -267,7 +266,6 @@ export class App {
 
   selectPerson(person: PersonDto | null): void {
     this.selectedPerson = person;
-    this.riskScore = null;
 
     if (!person) {
       this.personForm = {
@@ -398,33 +396,23 @@ export class App {
     });
   }
 
-  async normalizeCondition(): Promise<void> {
-    const text = this.conditionText.trim();
+  async normalizeConditionFromAttributes(): Promise<void> {
+    const conditionCodeAttribute = this.findPersonAttribute('condition_code');
+    if (!conditionCodeAttribute) {
+      this.notifyError('No se encontró el atributo condition_code para normalizar.');
+      return;
+    }
+
+    const text = (conditionCodeAttribute.stringValue ?? '').trim();
     if (!text) {
-      this.notifyError('Ingresa un texto de condición para normalizar.');
+      this.notifyError('Ingresa un texto en condition_code para normalizar.');
       return;
     }
 
     await this.run(async () => {
       this.normalizedCondition = await this.aiApi.normalizeCondition(this.apiBaseUrl, this.token, text);
+      conditionCodeAttribute.stringValue = this.normalizedCondition.code;
       this.notifySuccess(`Condición normalizada como ${this.normalizedCondition.code}.`);
-    });
-  }
-
-  async scoreSelectedPersonRisk(): Promise<void> {
-    if (!this.selectedPerson) {
-      this.notifyError('Selecciona una persona para calcular el riesgo.');
-      return;
-    }
-
-    await this.run(async () => {
-      const response = await this.aiApi.scorePersonRisk(this.apiBaseUrl, this.token, this.selectedPerson!.id);
-      this.riskScore = {
-        score: response.score,
-        band: response.band,
-        reasons: Array.isArray(response.reasons) ? response.reasons : []
-      };
-      this.notifySuccess(`Puntaje de riesgo calculado: ${this.riskScore.score} (${this.riskBandLabel(this.riskScore.band)}).`);
     });
   }
 
@@ -612,14 +600,6 @@ export class App {
     return this.attributeTypes.find(t => t.value === type)?.label ?? String(type);
   }
 
-  isRiskBand(band: string | number, expected: 'low' | 'medium' | 'high'): boolean {
-    return this.riskBand.isBand(band, expected);
-  }
-
-  riskBandLabel(band: string | number): string {
-    return this.riskBand.label(band);
-  }
-
   toggleTheme(): void {
     this.themeMode = this.theme.toggle(this.themeMode);
     this.cdr.detectChanges();
@@ -655,6 +635,10 @@ export class App {
 
   private normalizePeoplePageSize(pageSize: number): number {
     return this.pagination.normalizePageSize(pageSize);
+  }
+
+  private findPersonAttribute(key: string): PersonAttributeFormItemDto | null {
+    return this.personAttributes.find(attr => attr.key === key) ?? null;
   }
 
   private clampPeoplePage(page: number): number {

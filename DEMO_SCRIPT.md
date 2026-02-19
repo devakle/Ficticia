@@ -84,20 +84,11 @@ docker compose -f docker/docker-compose.yml up -d --wait --wait-timeout 180
 - `matchedTerms`
 - `suggestedAttributes`
 
-### Scoring
-1. Seleccionar persona.
-2. Llamar `POST /api/v1/ai/people/{id}/risk-score`.
-3. Mostrar:
-- score numerico.
-- banda (`Low`, `Medium`, `High`).
-- razones en texto.
-
 ## 6. Casos de error para mostrar robustez
 
 1. Crear persona invalida -> `400 Validation error`.
 2. Documento duplicado -> `409 people.duplicate_identification`.
 3. Filtro dinamico invalido -> `400 filters.invalid`.
-4. Risk score de persona inexistente -> `400 ai.person_not_found`.
 
 ## 7. Mensajes clave de cierre
 

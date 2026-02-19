@@ -114,7 +114,6 @@ flowchart LR
 
 ### AI
 - Normalizacion de condicion (`conditions/normalize`).
-- Scoring de riesgo por persona (`people/{id}/risk-score`).
 
 ## 5. Seguridad y permisos
 
@@ -154,7 +153,6 @@ flowchart LR
 
 ### AI
 - `POST /api/v1/ai/conditions/normalize`
-- `POST /api/v1/ai/people/{personId}/risk-score`
 
 ## 7. Casos de uso cubiertos
 
@@ -179,7 +177,6 @@ flowchart LR
 ### 7.4 IA aplicada
 - Normalizacion desde texto libre a codigo de condicion.
 - Sugerencias de atributos derivadas del resultado.
-- Score de riesgo con banda y razones.
 - Manejo controlado de fallas de proveedor.
 
 ## 8. Cobertura de pruebas
@@ -195,7 +192,6 @@ flowchart LR
 - IA:
   - auth requerida.
   - provider ok/fail.
-  - persona inexistente para risk score.
 
 ### Unit tests cubren
 - `AttributeValueShapeValidator`: shape y consistencia tipo-valor.
@@ -208,7 +204,6 @@ flowchart LR
 - `ConnectionStrings:IdentityDb`
 - `Jwt:Issuer`, `Jwt:Audience`, `Jwt:Key`, `Jwt:ExpiresMinutes`
 - `OpenAI:ApiKey`, `OpenAI:BaseUrl`, `OpenAI:Model`, `OpenAI:ConfidenceThreshold`
-- `RiskRules:*`
 - `Redis:ConnectionString` (opcional)
 
 ### Credenciales de desarrollo seed
