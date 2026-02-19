@@ -182,8 +182,15 @@ export class App {
       const auth = await this.authApi.login(this.apiBaseUrl, this.email, this.password);
       this.setAuthSession(auth);
       this.notifySuccess(`Autenticación exitosa (${this.currentRoleSummary}).`);
-
-      await Promise.all([this.searchPeople(), this.loadDefinitions()]);
+      await this.searchPeople();
+      if (this.hasAttributesManageAccess) {
+        await this.loadDefinitions();
+      } else {
+        this.definitions = [];
+        this.definitionRulesDrafts = {};
+        this.refreshSavedFilterableDefinitions();
+        this.syncDynamicFiltersWithDefinitions();
+      }
     });
   }
 
@@ -222,6 +229,11 @@ export class App {
   }
 
   async createPerson(): Promise<void> {
+    if (!this.hasPeopleWriteAccess) {
+      this.notifyError('No tienes permisos para crear personas.');
+      return;
+    }
+
     await this.run(async () => {
       const created = await this.peopleApi.create(this.apiBaseUrl, this.token, this.personForm);
 
@@ -232,6 +244,11 @@ export class App {
   }
 
   async updatePerson(): Promise<void> {
+    if (!this.hasPeopleWriteAccess) {
+      this.notifyError('No tienes permisos para actualizar personas.');
+      return;
+    }
+
     if (!this.selectedPerson) {
       this.notifyError('Selecciona una persona para actualizar.');
       return;
@@ -251,6 +268,11 @@ export class App {
   }
 
   async toggleStatus(nextIsActive: boolean): Promise<void> {
+    if (!this.hasPeopleWriteAccess) {
+      this.notifyError('No tienes permisos para cambiar el estado de personas.');
+      return;
+    }
+
     if (!this.selectedPerson) {
       this.notifyError('Selecciona una persona para cambiar su estado.');
       return;
@@ -289,6 +311,14 @@ export class App {
   }
 
   async loadDefinitions(): Promise<void> {
+    if (!this.hasAttributesManageAccess) {
+      this.definitions = [];
+      this.definitionRulesDrafts = {};
+      this.refreshSavedFilterableDefinitions();
+      this.syncDynamicFiltersWithDefinitions();
+      return;
+    }
+
     await this.run(async () => {
       this.definitions = await this.attributesApi.getDefinitions(this.apiBaseUrl, this.token, !this.includeInactiveDefinitions);
       this.hydrateDefinitionRuleDrafts();
@@ -299,6 +329,11 @@ export class App {
   }
 
   async createDefinition(): Promise<void> {
+    if (!this.hasAttributesManageAccess) {
+      this.notifyError('No tienes permisos para crear definiciones.');
+      return;
+    }
+
     await this.run(async () => {
       const payload = {
         key: this.newDefinition.key.trim(),
@@ -324,6 +359,11 @@ export class App {
   }
 
   async updateDefinition(definition: AttributeDefinitionDto): Promise<void> {
+    if (!this.hasAttributesManageAccess) {
+      this.notifyError('No tienes permisos para actualizar definiciones.');
+      return;
+    }
+
     await this.run(async () => {
       const payload = {
         id: definition.id,
@@ -361,6 +401,11 @@ export class App {
   }
 
   async savePersonAttributes(): Promise<void> {
+    if (!this.hasPeopleWriteAccess) {
+      this.notifyError('No tienes permisos para guardar atributos.');
+      return;
+    }
+
     if (!this.selectedPerson) {
       this.notifyError('Selecciona una persona primero.');
       return;

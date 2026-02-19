@@ -32,25 +32,19 @@
     </div>
     <div class="demo-accounts">
       <p class="hint">Acceso rápido de demo por rol</p>
-      <div class="actions demo-actions">
+      <div class="demo-grid">
         @for (credential of demoCredentials; track credential.role) {
           <button
             type="button"
-            class="secondary demo-button"
+            class="demo-card"
             (click)="loginAsDemo(credential)"
             [disabled]="busy"
             [class.active]="isRoleActive(credential.role)"
+            [attr.aria-pressed]="isRoleActive(credential.role)"
           >
-            Entrar como {{ credential.role }}
-          </button>
-        }
-      </div>
-      <div class="demo-grid">
-        @for (credential of demoCredentials; track credential.role) {
-          <article class="demo-card" [class.active]="isRoleActive(credential.role)">
             <p><strong>{{ credential.role }}</strong> · {{ credential.email }}</p>
             <small>{{ credential.expectedAccess }}</small>
-          </article>
+          </button>
         }
       </div>
     </div>
@@ -260,13 +254,13 @@
       </div>
 
       <div class="actions split">
-        <button type="button" (click)="createPerson()" [disabled]="busy || !token">Crear</button>
-        <button type="button" (click)="updatePerson()" [disabled]="busy || !token || !selectedPerson">Actualizar</button>
+        <button type="button" (click)="createPerson()" [disabled]="busy || !token || !hasPeopleWriteAccess">Crear</button>
+        <button type="button" (click)="updatePerson()" [disabled]="busy || !token || !selectedPerson || !hasPeopleWriteAccess">Actualizar</button>
         <button
           type="button"
           class="secondary"
           (click)="toggleStatus(!selectedPerson!.isActive)"
-          [disabled]="busy || !token || !selectedPerson"
+          [disabled]="busy || !token || !selectedPerson || !hasPeopleWriteAccess"
         >
           {{ selectedPerson?.isActive ? 'Marcar inactiva' : 'Marcar activa' }}
         </button>
@@ -285,7 +279,7 @@
       </label>
 
       <div class="actions compact-actions">
-        <button type="button" class="secondary" (click)="loadDefinitions()" [disabled]="busy || !token">Actualizar definiciones</button>
+        <button type="button" class="secondary" (click)="loadDefinitions()" [disabled]="busy || !token || !hasAttributesManageAccess">Actualizar definiciones</button>
       </div>
 
       <div class="grid two">
@@ -367,7 +361,7 @@
       </div>
 
       <div class="actions">
-        <button type="button" (click)="createDefinition()" [disabled]="busy || !token">Crear definición</button>
+        <button type="button" (click)="createDefinition()" [disabled]="busy || !token || !hasAttributesManageAccess">Crear definición</button>
       </div>
 
       <div class="definition-list">
@@ -475,7 +469,7 @@
               </div>
             </div>
             <div class="actions">
-              <button type="button" class="secondary" (click)="updateDefinition(def)" [disabled]="busy || !token">Guardar</button>
+              <button type="button" class="secondary" (click)="updateDefinition(def)" [disabled]="busy || !token || !hasAttributesManageAccess">Guardar</button>
             </div>
           </section>
         }
@@ -594,7 +588,7 @@
 
       <div class="actions split">
         <button type="button" class="secondary" (click)="loadPersonAttributeForm()" [disabled]="busy || !token">Recargar formulario</button>
-        <button type="button" (click)="savePersonAttributes()" [disabled]="busy || !token">Guardar atributos</button>
+        <button type="button" (click)="savePersonAttributes()" [disabled]="busy || !token || !hasPeopleWriteAccess">Guardar atributos</button>
       </div>
     }
   </section>

@@ -11,31 +11,30 @@ public sealed class AttributeCatalogCache : IAttributeCatalogCache
 {
     private const string CacheKey = "ficticia:people:attribute-definitions:v1";
 
-    private readonly IDistributedCache? _cache;
+    private readonly IDistributedCache? _primaryCache;
+    private readonly IDistributedCache? _secondaryCache;
     private readonly PeopleDbContext _db;
 
-    public AttributeCatalogCache(PeopleDbContext db, IDistributedCache? cache = null)
+    public AttributeCatalogCache(PeopleDbContext db, IEnumerable<IDistributedCache>? caches = null)
     {
         _db = db;
-        _cache = cache;
+        var allCaches = (caches ?? Array.Empty<IDistributedCache>()).Distinct().ToList();
+
+        // En Development puede haber Redis + Memory; preferimos Redis como primary.
+        _primaryCache = allCaches.FirstOrDefault(c => c.GetType().Name.Contains("Redis", StringComparison.OrdinalIgnoreCase))
+                     ?? allCaches.FirstOrDefault();
+
+        _secondaryCache = allCaches
+            .FirstOrDefault(c => !ReferenceEquals(c, _primaryCache));
     }
 
     public async Task<IReadOnlyList<AttributeDefinitionDto>> GetAsync(bool onlyActive, CancellationToken ct)
     {
         var key = $"{CacheKey}:{onlyActive}";
-        if (_cache is not null)
-        {
-            try
-            {
-                var cached = await _cache.GetStringAsync(key, ct);
-                if (cached is not null)
-                    return JsonSerializer.Deserialize<List<AttributeDefinitionDto>>(cached)!;
-            }
-            catch (Exception)
-            {
-                // If distributed cache is down/unreachable, fallback to DB instead of failing request.
-            }
-        }
+        var cached = await TryGetCacheAsync(_primaryCache, key, ct)
+                  ?? await TryGetCacheAsync(_secondaryCache, key, ct);
+        if (cached is not null)
+            return cached;
 
         var q = _db.AttributeDefinitions.AsNoTracking();
         if (onlyActive) q = q.Where(x => x.IsActive);
@@ -46,39 +45,79 @@ public sealed class AttributeCatalogCache : IAttributeCatalogCache
             ))
             .ToListAsync(ct);
 
-        if (_cache is not null)
-        {
-            try
-            {
-                await _cache.SetStringAsync(
-                    key,
-                    JsonSerializer.Serialize(items),
-                    new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30) },
-                    ct
-                );
-            }
-            catch (Exception)
-            {
-                // Ignore cache write failures; source of truth is DB.
-            }
-        }
+        await TrySetCacheAsync(_primaryCache, key, items, ct);
+        await TrySetCacheAsync(_secondaryCache, key, items, ct);
 
         return items;
     }
 
     public Task InvalidateAsync(CancellationToken ct)
     {
-        if (_cache is null) return Task.CompletedTask;
+        if (_primaryCache is null && _secondaryCache is null) return Task.CompletedTask;
         return InvalidateSafeAsync(ct);
     }
 
     private async Task InvalidateSafeAsync(CancellationToken ct)
     {
+        await TryRemoveCacheAsync(_primaryCache, ct);
+        await TryRemoveCacheAsync(_secondaryCache, ct);
+    }
+
+    private static async Task<IReadOnlyList<AttributeDefinitionDto>?> TryGetCacheAsync(
+        IDistributedCache? cache,
+        string key,
+        CancellationToken ct)
+    {
+        if (cache is null) return null;
+
+        try
+        {
+            var cached = await cache.GetStringAsync(key, ct);
+            if (cached is not null)
+            {
+                return JsonSerializer.Deserialize<List<AttributeDefinitionDto>>(cached)!;
+            }
+        }
+        catch (Exception)
+        {
+            // If cache is down/unreachable, caller will try fallback cache or DB.
+        }
+
+        return null;
+    }
+
+    private static async Task TrySetCacheAsync(
+        IDistributedCache? cache,
+        string key,
+        IReadOnlyList<AttributeDefinitionDto> items,
+        CancellationToken ct)
+    {
+        if (cache is null) return;
+
+        try
+        {
+            await cache.SetStringAsync(
+                key,
+                JsonSerializer.Serialize(items),
+                new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30) },
+                ct
+            );
+        }
+        catch (Exception)
+        {
+            // Ignore cache write failures; source of truth is DB.
+        }
+    }
+
+    private static async Task TryRemoveCacheAsync(IDistributedCache? cache, CancellationToken ct)
+    {
+        if (cache is null) return;
+
         try
         {
             await Task.WhenAll(
-                _cache!.RemoveAsync($"{CacheKey}:True", ct),
-                _cache.RemoveAsync($"{CacheKey}:False", ct));
+                cache.RemoveAsync($"{CacheKey}:True", ct),
+                cache.RemoveAsync($"{CacheKey}:False", ct));
         }
         catch (Exception)
         {

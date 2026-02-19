@@ -13,7 +13,6 @@ using System.Text;
 using Microsoft.OpenApi;
 using Modules.AI.Infrastructure;
 using Modules.AI.Application.Conditions.Commands;
-using MediatR;
 using Serilog;
 using Serilog.Sinks.SystemConsole.Themes;
 
@@ -125,9 +124,19 @@ try
     // BuildingBlocks (middlewares + validation pipeline)
     builder.Services.AddBuildingBlocks();
 
-    // Redis opcional
+    // Cache distribuida:
+    // - Development: Redis preferido + fallback en memoria.
+    // - Otros entornos: Redis solo si está configurado.
     var redisConnection = builder.Configuration.GetValue<string>("Redis:ConnectionString");
-    if (!string.IsNullOrWhiteSpace(redisConnection))
+    if (builder.Environment.IsDevelopment())
+    {
+        if (!string.IsNullOrWhiteSpace(redisConnection))
+        {
+            builder.Services.AddStackExchangeRedisCache(opt => opt.Configuration = redisConnection);
+        }
+        builder.Services.AddDistributedMemoryCache();
+    }
+    else if (!string.IsNullOrWhiteSpace(redisConnection))
     {
         builder.Services.AddStackExchangeRedisCache(opt => opt.Configuration = redisConnection);
     }

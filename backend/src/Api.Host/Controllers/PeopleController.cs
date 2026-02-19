@@ -27,6 +27,7 @@ public sealed class PeopleController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = "People.Write")]
     public async Task<IActionResult> Update(
         Guid id,
         [FromBody] UpdatePersonCommand cmd,
@@ -39,6 +40,7 @@ public sealed class PeopleController : ControllerBase
     }
 
     [HttpPatch("{id:guid}/status")]
+    [Authorize(Policy = "People.Write")]
     public async Task<IActionResult> SetStatus(
         Guid id,
         [FromBody] SetPersonStatusCommand cmd,
@@ -98,6 +100,7 @@ public sealed class PeopleController : ControllerBase
     }
 
     [HttpPut("{personId:guid}/attributes")]
+    [Authorize(Policy = "People.Write")]
     public async Task<IActionResult> UpsertAttributes(
         Guid personId,
         [FromBody] List<UpsertAttributeValueDto> values,

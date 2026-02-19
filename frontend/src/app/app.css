@@ -303,6 +303,38 @@ button:disabled {
   border-radius: 10px;
   padding: 0.55rem 0.6rem;
   background: color-mix(in oklab, var(--panel) 88%, #e7f1fb);
+  color: inherit;
+  box-shadow: none;
+  min-height: auto;
+  text-align: left;
+  display: grid;
+  gap: 0.2rem;
+  transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.demo-card p {
+  margin: 0;
+}
+
+.demo-card small {
+  margin: 0;
+}
+
+.demo-card:hover:enabled {
+  transform: translateY(-1px);
+  border-color: color-mix(in oklab, var(--line) 55%, var(--focus));
+}
+
+.demo-card.active {
+  border-color: #3ba66f;
+  background: #e5f6ec;
+  box-shadow: 0 8px 18px rgba(28, 126, 66, 0.2);
+}
+
+:host.dark-theme .demo-card.active {
+  border-color: #50b87d;
+  background: #163125;
+  box-shadow: 0 10px 20px rgba(9, 46, 22, 0.4);
 }
 
 .actions.split {
